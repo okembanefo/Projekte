@@ -252,12 +252,12 @@ toolbar_frame = ttk.Frame(root)
 toolbar_frame.pack(side="top", fill="x", pady=(5, 0))
 
 settings_button = ttk.Button(
-    toolbar_frame,
+    root,
     text="Einstellungen",
     command=open_settings,
     style='TButton'
 )
-settings_button.place(relx=0.99, rely=0.98, anchor='se')
+settings_button.place(relx=0.99, rely=0.95, anchor='se') 
 
 def open_ableitung_popup():
     """Öffnet ein Popup-Fenster zur Auswahl der abzuleitenden Funktion."""
@@ -505,7 +505,7 @@ def open_legend():
     tk.Label(frame, text="", font=font_style).pack()  # Leerzeile
 
     tk.Label(frame, text="Verfügbare Konstanten:", font=('Segoe UI', 11, 'bold')).pack(anchor='w')
-    for name, expr in spec_cons.items():
+    for name, expr in comp_input.spec_cons.items():
         tk.Label(frame, text=f"{name} → {expr}", font=font_style).pack(anchor='w')
 
     tk.Button(frame, text="Schließen", command=legend_popup.destroy).pack(pady=10)
