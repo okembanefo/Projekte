@@ -257,7 +257,7 @@ settings_button = ttk.Button(
     command=open_settings,
     style='TButton'
 )
-settings_button.pack(side="right", padx=5, pady=5)
+settings_button.place(relx=0.99, y=10, anchor='ne')
 
 def open_ableitung_popup():
     """Öffnet ein Popup-Fenster zur Auswahl der abzuleitenden Funktion."""
@@ -488,6 +488,36 @@ rft_button = ttk.Button(
     style='TButton'
 )
 rft_button.pack(fill='x', pady=10)
+
+def open_legend():
+    """Öffnet ein Popup, das alle verfügbaren Funktionen und Konstanten zeigt."""
+    legend_popup = Toplevel(root)
+    legend_popup.title("Legende")
+    legend_popup.geometry("350x400")
+
+    frame = Frame(legend_popup)
+    frame.pack(padx=10, pady=10, fill='both', expand=True)
+
+    tk.Label(frame, text="Verfügbare Funktionen:", font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+    for name, expr in comp_input.spec_funcs.items():
+        tk.Label(frame, text=f"{name} → {expr}", font=font_style).pack(anchor='w')
+
+    tk.Label(frame, text="", font=font_style).pack()  # Leerzeile
+
+    tk.Label(frame, text="Verfügbare Konstanten:", font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+    for name, expr in spec_cons.items():
+        tk.Label(frame, text=f"{name} → {expr}", font=font_style).pack(anchor='w')
+
+    tk.Button(frame, text="Schließen", command=legend_popup.destroy).pack(pady=10)
+
+# --- Legende-Button unten links --- 
+legend_button = ttk.Button(
+    root,
+    text="Legende",
+    command=open_legend,
+    style='TButton'
+)
+legend_button.place(relx=0.01, rely=0.95, anchor='sw')
 
 
 # Event-Bindings für Zoomen/Panning

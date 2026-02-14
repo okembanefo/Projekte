@@ -10,8 +10,6 @@ def tri(x, T = 1.0):
     return np.where(np.abs(x) <= T, 1.0 - np.abs(x)/T, 0.0)
 
 spec_funcs = {
-    "log10": "np.log10",
-    "log2": "np.log2",
     "sinc": "np.sinc",
     "sin": "np.sin",
     "cos": "np.cos",
