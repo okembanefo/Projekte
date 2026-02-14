@@ -35,19 +35,51 @@ spec_cons = {
 }
 
 superscript_map = {
-    "0": "⁰",
-    "1": "¹",
-    "2": "²",
-    "3": "³",
-    "4": "⁴",
-    "5": "⁵",
-    "6": "⁶",
-    "7": "⁷",
-    "8": "⁸",
-    "9": "⁹",
-    "x": "ˣ",
-    "-": "⁻",
+    "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
+    "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
+    "-": "⁻", ".": "·", "(": "⁽", ")": "⁾"  
 }
+
+
+def simplify_funcs(expr: str) -> str:
+
+    expr = expr.strip()
+
+    # --- 1. sqrt(x) vereinfachen ---
+    def sqrt_replace(match):
+        coeff = match.group(1)
+        if coeff is None or coeff in ("", "+"):
+            coeff = ""
+        elif coeff == "-":
+            coeff = "-"
+        return f"{coeff}x^(1/2)"
+    expr = re.sub(r"([+-]?\d*\.?\d*)?\*?sqrt\((x)\)", sqrt_replace, expr)
+
+    # --- 2. Trigonometrische Funktionen mit Vorfaktor ---
+    trig_funcs = ["sin", "cos", "tan", "exp", "ln", "log"]  # ggf. erweitern
+    for f in trig_funcs:
+        pattern = rf"([+-]?\d*\.?\d*)?\*?{f}\((x)\)"
+        def func_replace(match, func=f):
+            coeff = match.group(1)
+            if coeff is None or coeff in ("", "+"):
+                coeff = ""
+            elif coeff == "-":
+                coeff = "-"
+            return f"{coeff}{func}(x)"
+        expr = re.sub(pattern, func_replace, expr)
+
+    # --- 3. sinc(x) -> sin(x)/x ---
+    def sinc_replace(match):
+        coeff = match.group(1)
+        if coeff is None or coeff in ("", "+"):
+            coeff = ""
+        elif coeff == "-":
+            coeff = "-"
+        return f"{coeff}sin(x)/x"
+    expr = re.sub(r"([+-]?\d*\.?\d*)?\*?sinc\((x)\)", sinc_replace, expr)
+
+    return expr
+
 
 def combine_exponents(expr: str) -> str:
     # Multiplikation gleicher Basen: x**a * x**b -> x**(a+b)
@@ -88,10 +120,12 @@ def combine_exponents(expr: str) -> str:
 def parser(expr: str) -> str:
     expr = expr.strip().replace(" ", "")
 
-    # --- e^... ---
-    expr = re.sub(r"e\^\((.*?)\)", r"np.exp(\1)", expr)
-    expr = re.sub(r"e\^x\b", r"np.exp(x)", expr)
-    expr = re.sub(r"e\^\s*([0-9a-zA-Z\(\)\-]+)", r"np.exp(\1)", expr)
+    # --- e^... nicht mehr erlauben ---
+    if re.search(r"(^|[^a-zA-Z])e\^", expr):
+        raise ValueError("Bitte verwende exp(x) statt e^x oder e^(...).")
+
+    # --- exp(...) direkt zu np.exp(...) ---
+    expr = re.sub(r"\bexp\((.*?)\)", r"np.exp(\1)", expr)
 
     # --- Negative Exponenten normalisieren ---
     expr = re.sub(r"\^\(\s*-\s*([0-9a-zA-Z]+)\s*\)", r"**(-\1)", expr)
@@ -107,6 +141,9 @@ def parser(expr: str) -> str:
     # --- Funktionen ---
     funcs = sorted(spec_funcs.keys(), key=len, reverse=True)
     for f in funcs:
+        # nur exp(x) bereits abgefangen, hier andere Funktionen
+        if f == "exp":
+            continue
         expr = re.sub(rf"\b{f}\b\((.*?)\)", rf"{spec_funcs[f]}(\1)", expr)
         expr = re.sub(rf"\b{f}\b([a-zA-Z0-9\.]+)", rf"{spec_funcs[f]}(\1)", expr)
 
@@ -123,6 +160,7 @@ def parser(expr: str) -> str:
     return expr
 
 
+
 def interpreted(expr: str) -> str:
     expr = expr.strip().replace(" ", "")
 
@@ -132,7 +170,7 @@ def interpreted(expr: str) -> str:
         return f"e^{inner}"
 
     expr = re.sub(r"e\^\((.*?)\)", exp_replace, expr)
-    expr = re.sub(r"e\^([0-9x\-]+)", exp_replace, expr)
+    expr = re.sub(r"e\^([0-9x\.\-]+)", exp_replace, expr)
     expr = re.sub(r"np\.exp\((.*?)\)", exp_replace, expr)
 
     # 2. Spezielle Funktionen
@@ -144,22 +182,41 @@ def interpreted(expr: str) -> str:
     expr = re.sub(r"([a-zA-Z0-9\)])\^1\b", r"\1", expr)
     expr = re.sub(r"([a-zA-Z0-9\)])\*\*1\b", r"\1", expr)
 
-    # --- 4. Exponenten zusammenfassen ---
+    # 4. Exponenten zusammenfassen
     expr = expr.replace("^", "**")
     expr = combine_exponents(expr)
 
-    # 5. Superscript-Formatierung inkl. negative Exponenten
+    # 5. Superscript-Formatierung inkl. negative & Fließkomma-Exponenten
     def sup_replace(match):
         base, power = match.groups()
         power = power.strip("()")
+
+        # Zahl in float parsen, prüfen ob int
+        try:
+            num = float(power)
+            if num.is_integer():  # ganze Zahl → ohne Dezimalpunkt
+                power = str(int(num))
+            else:
+                power = str(num)   # Dezimalzahl bleibt mit Punkt
+        except ValueError:
+            pass  # z.B. x oder andere Variable bleibt unverändert
+
         sup = "".join(superscript_map.get(ch, ch) for ch in power)
         return f"{base}{sup}"
 
-    expr = re.sub(r"([a-zA-Z0-9\)])\^(\-?\d+|\-?x|\(\-?\d+\))", sup_replace, expr)
-    expr = re.sub(r"([a-zA-Z0-9\)])\*\*(\-?\d+|\-?x|\(\-?\d+\))", sup_replace, expr)
+    expr = re.sub(
+        r"([a-zA-Z0-9\)])\*\*(\-?\d+(?:\.\d+)?|\-?x|\(\-?\d+(?:\.\d+)?\))",
+        sup_replace,
+        expr
+    )
+    expr = re.sub(
+        r"([a-zA-Z0-9\)])\^(\-?\d+(?:\.\d+)?|\-?x|\(\-?\d+(?:\.\d+)?\))",
+        sup_replace,
+        expr
+    )
 
     # 6. Multiplikationszeichen entfernen
-    expr = re.sub(r"(\d+)(\*([a-zA-Z\(]))", lambda m: m.group(1) + m.group(3), expr)
+    expr = re.sub(r"(\d+)\*([a-zA-Z\(])", lambda m: m.group(1) + m.group(2), expr)
 
     # 7. Konstanten
     expr = expr.replace("np.pi", "π").replace("np.e", "e").replace("(2*np.pi)", "τ")

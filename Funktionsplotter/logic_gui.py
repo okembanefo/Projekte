@@ -191,12 +191,13 @@ def plot_functions(canvas, ax, error_label=None):
 
                 # Ableitung(en)
                 else:
+                    label = f"{func_name.split('(')[0]}'(x) = {interpreted(func_str)}"
                     ax.plot(
                         x,
                         y,
                         color=deriv_color,
                         linestyle="--",
-                        label=f"{func_name}' = {interpreted(func_str)}"
+                        label=label
                     )
 
             except ZeroDivisionError:
