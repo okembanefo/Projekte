@@ -422,7 +422,7 @@ def plot_integration(func_name, func_str, a, b):
         y = func(x)
 
         fig, ax = plt.subplots()
-        ax.plot(x, y, label=f'{func_name} = {func_str}')
+        ax.plot(x, y, label=f'{func_name} = {interpreted(func_str)}')
         ax.axvline(x=a, color='gray', linestyle='--')
         ax.axvline(x=b, color='gray', linestyle='--')
 
