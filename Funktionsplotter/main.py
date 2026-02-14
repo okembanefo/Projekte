@@ -493,7 +493,7 @@ def open_legend():
     """Öffnet ein Popup, das alle verfügbaren Funktionen und Konstanten zeigt."""
     legend_popup = Toplevel(root)
     legend_popup.title("Legende")
-    legend_popup.geometry("350x400")
+    legend_popup.geometry("350x600")
 
     frame = Frame(legend_popup)
     frame.pack(padx=10, pady=10, fill='both', expand=True)
