@@ -280,7 +280,7 @@ def open_ableitung_popup():
         idx = ['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)'].index(func_name)
         btn = tk.Button(
             frame,
-            text=f"{func_name} = {func_str}",
+            text=f"{func_name} = {interpreted(func_str)}",
             command=lambda name=func_name, s=func_str: plot_ableitung(name, s),
             bg=logic_gui.colors[idx],
             fg="white",
