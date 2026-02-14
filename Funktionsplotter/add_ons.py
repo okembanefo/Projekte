@@ -23,97 +23,166 @@ def simplify_funcs(expr: str) -> str:
     return expr
 
 def ableitung(expr: str) -> str:
+
     expr = expr.replace(" ", "")
-    expr = simplify_funcs(expr)
+    terms = re.split(r'(?=[+-])', expr)
 
-    def split_terms(e):
-        terms, bracket_level, current = [], 0, ""
-        for i, c in enumerate(e):
-            if c == '(':
-                bracket_level += 1
-            elif c == ')':
-                bracket_level -= 1
-            if c in '+-' and bracket_level == 0 and i != 0:
-                terms.append(current)
-                current = c
-            else:
-                current += c
-        terms.append(current)
-        return terms
+    result_terms = []
 
-    def parse_factor_and_inner(term):
-        match = re.match(r'^([+-]?\d*\.?\d*)?([a-zA-Z]+\(.+\)|x\^\(?[0-9./+-]+\)?|x|1/x)$', term)
-        if match:
-            coeff_str, inner = match.groups()
-            if coeff_str in ("", "+", None):
-                coeff = 1.0
-            elif coeff_str == "-":
-                coeff = -1.0
-            else:
-                coeff = float(coeff_str)
-            return coeff, inner
-        return 1.0, term
-
-    def extract_inner_factor(inner):
-        match = re.match(r'^([+-]?\d*\.?\d*)\*?x$', inner)
-        if match:
-            factor_str = match.group(1)
-            if factor_str in ("", "+"):
-                return 1.0
-            elif factor_str == "-":
-                return -1.0
-            else:
-                return float(factor_str)
-        match = re.match(r'^x/([+-]?\d*\.?\d+)$', inner)
-        if match:
-            return 1/float(match.group(1))
-        return 1.0
-
-    def derivative_func(inner, coeff=1.0):
-        # Potenzen x^n
-        match_pow = re.match(r'^x\^\(?([+-]?\d+(\.\d+)?)\)?$', inner)
-        if match_pow:
-            exp = float(match_pow.group(1))
-            total_coeff = coeff * exp
-            new_exp = exp - 1
-            if new_exp == 0:
-                return f"{total_coeff:g}"
-            elif new_exp == 1:
-                return f"{total_coeff:g}x"
-            else:
-                exp_str = str(int(new_exp)) if new_exp.is_integer() else f"({new_exp})"
-                return f"{total_coeff:g}x^{exp_str}"
-
-        # Standardfunktionen aus abl_map
-        if inner in abl_map:
-            der = abl_map[inner]
-            return f"{coeff:g}*{der}" if coeff != 1 else der
-
-        # Verschachtelte Funktionen f(g(x)) → Kettenregel
-        func_match = re.match(r'([a-zA-Z]+)\((.+)\)', inner)
-        if func_match:
-            f, g = func_match.groups()
-            inner_factor = extract_inner_factor(g)
-            total_coeff = coeff * inner_factor
-            outer = abl_map.get(f"{f}(x)", None)
-            if outer:
-                outer = outer.replace("x", g)
-                return f"{total_coeff:g}*{outer}"  # d_g entfällt, inner_factor ist schon multipliziert
-            else:
-                return f"{total_coeff:g}*d/dx({inner})"
-
-        if inner == "x":
-            return f"{coeff:g}"
-        if re.fullmatch(r'[+-]?\d+(\.\d+)?', inner):
-            return "0"
-        return f"{coeff:g}*d/dx({inner})"
-
-    terms = split_terms(expr)
-    derivatives = []
     for term in terms:
-        if not term:
+        if term == "":
             continue
-        coeff, inner = parse_factor_and_inner(term)
-        derivatives.append(derivative_func(inner, coeff))
 
-    return '+'.join(derivatives).replace('+-','-')
+        # --- x^n ---
+        power_match = re.match(r'([+-]?\d*\.?\d*)x\^(\d+)', term)
+        if power_match:
+            coeff_str, power_str = power_match.groups()
+
+            coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (
+                -1.0 if coeff_str == "-" else 1.0
+            )
+            power = int(power_str)
+
+            new_coeff = coeff * power
+            new_power = power - 1
+
+            if new_coeff == 1:
+                coeff_out = ""
+            elif new_coeff == -1:
+                coeff_out = "-"
+            else:
+                coeff_out = str(int(new_coeff) if new_coeff.is_integer() else new_coeff)
+
+            if new_power == 1:
+                result_terms.append(f"{coeff_out}x")
+            elif new_power == 0:
+                result_terms.append(f"{coeff_out}")
+            else:
+                result_terms.append(f"{coeff_out}x^{new_power}")
+
+            continue
+
+        # --- kx ---
+        linear_match = re.match(r'([+-]?\d*\.?\d*)x$', term)
+        if linear_match:
+            coeff_str = linear_match.group(1)
+
+            coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (
+                -1.0 if coeff_str == "-" else 1.0
+            )
+
+            if coeff == 1:
+                result_terms.append("1")
+            elif coeff == -1:
+                result_terms.append("-1")
+            else:
+                coeff_out = str(int(coeff) if coeff.is_integer() else coeff)
+                result_terms.append(coeff_out)
+
+            continue
+
+        # --- ln(kx) ---
+        ln_match = re.match(r'([+-]?\d*\.?\d*)?ln\((\d*)x\)', term)
+        if ln_match:
+            coeff_str, inner_coeff_str = ln_match.groups()
+
+            coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (
+                -1.0 if coeff_str == "-" else 1.0
+            )
+            inner_coeff = float(inner_coeff_str) if inner_coeff_str != "" else 1.0
+
+            new_coeff = coeff * inner_coeff
+            denom = "x" if inner_coeff == 1 else f"{int(inner_coeff)}x"
+
+            if new_coeff == 1:
+                result_terms.append(f"1/{denom}")
+            elif new_coeff == -1:
+                result_terms.append(f"-1/{denom}")
+            else:
+                coeff_out = str(int(abs(new_coeff))) if abs(new_coeff).is_integer() else str(abs(new_coeff))
+                sign = "-" if new_coeff < 0 else ""
+                if denom == "x":
+                    result_terms.append(f"{sign}{coeff_out}/x")
+                else:
+                    result_terms.append(f"{sign}{coeff_out}/({denom})")
+
+            continue
+
+        # --- exp(allgemein) ---
+        exp_match = re.match(r'([+-]?\d*\.?\d*)?exp\((.+)\)', term)
+        if exp_match:
+            coeff_str, inner = exp_match.groups()
+
+            coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (
+                -1.0 if coeff_str == "-" else 1.0
+            )
+
+            inner_deriv = ableitung(inner)
+
+            # nur Klammern setzen, wenn inner_deriv mehr als 1 Zeichen enthält
+            if inner_deriv == "1":
+                inner_part = ""
+            elif len(inner_deriv) > 1:
+                inner_part = f"({inner_deriv})*"
+            else:
+                inner_part = f"{inner_deriv}*"
+
+            if coeff == 1:
+                coeff_out = ""
+            elif coeff == -1:
+                coeff_out = "-"
+            else:
+                coeff_out = str(int(coeff) if coeff.is_integer() else coeff)
+
+            result_terms.append(f"{coeff_out}{inner_part}exp({inner})")
+            continue
+
+        # --- trig ---
+        func_match = re.match(r'([+-]?\d*\.?\d*)?(sin|cos|tan)\((\d*)x\)', term)
+        if func_match:
+            coeff_str, func, inner_coeff_str = func_match.groups()
+
+            coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (
+                -1.0 if coeff_str == "-" else 1.0
+            )
+            inner_coeff = float(inner_coeff_str) if inner_coeff_str != "" else 1.0
+
+            new_coeff = coeff * inner_coeff
+            base_deriv = abl_map[f"{func}(x)"]
+
+            if base_deriv.startswith("-"):
+                base_deriv = base_deriv[1:]
+                new_coeff *= -1
+
+            if new_coeff == 1:
+                coeff_out = ""
+            elif new_coeff == -1:
+                coeff_out = "-"
+            else:
+                coeff_out = str(int(new_coeff) if new_coeff.is_integer() else new_coeff)
+
+            result_terms.append(f"{coeff_out}{base_deriv}")
+            continue
+
+        # --- x ---
+        if term in ("x", "+x"):
+            result_terms.append("1")
+            continue
+        if term == "-x":
+            result_terms.append("-1")
+            continue
+
+        # --- Konstante ---
+        if re.fullmatch(r'[+-]?\d+\.?\d*', term):
+            result_terms.append("0")
+            continue
+
+        result_terms.append(term)
+
+    result = " + ".join(result_terms)
+    result = result.replace("+ -", "- ")
+    result = result.replace("+-", "-")
+    result = result.replace("++", "+")
+    result = result.replace("--", "+")
+
+    return result

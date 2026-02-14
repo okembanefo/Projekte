@@ -143,7 +143,6 @@ def on_scroll(event, ax, canvas):
     canvas.draw_idle()
 
 def lighter_color(color):
-    """Erzeugt eine hellere Variante einer Farbe."""
     import matplotlib.colors as mc
     import colorsys
     rgb = mc.to_rgb(color)

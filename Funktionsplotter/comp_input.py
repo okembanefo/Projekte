@@ -111,12 +111,11 @@ def combine_exponents(expr: str) -> str:
 def parser(expr: str) -> str:
     expr = expr.strip().replace(" ", "")
 
-    # --- e^... nicht mehr erlauben ---
     if re.search(r"(^|[^a-zA-Z])e\^", expr):
         raise ValueError("Bitte verwende exp(x) statt e^x oder e^(...).")
 
-    # --- exp(...) direkt zu np.exp(...) ---
-    expr = re.sub(r"\bexp\((.*?)\)", r"np.exp(\1)", expr)
+    # --- exp(...) schützen → Platzhalter ---
+    expr = re.sub(r"\bexp\((.*?)\)", r"__EXP__(\1)", expr)
 
     # --- Negative Exponenten normalisieren ---
     expr = re.sub(r"\^\(\s*-\s*([0-9a-zA-Z]+)\s*\)", r"**(-\1)", expr)
@@ -132,15 +131,19 @@ def parser(expr: str) -> str:
     # --- Funktionen ---
     funcs = sorted(spec_funcs.keys(), key=len, reverse=True)
     for f in funcs:
-        # nur exp(x) bereits abgefangen, hier andere Funktionen
         if f == "exp":
             continue
         expr = re.sub(rf"\b{f}\b\((.*?)\)", rf"{spec_funcs[f]}(\1)", expr)
         expr = re.sub(rf"\b{f}\b([a-zA-Z0-9\.]+)", rf"{spec_funcs[f]}(\1)", expr)
 
-    # --- Konstanten ---
-    for c, npc in spec_cons.items():
-        expr = re.sub(rf"\b{c}\b", npc, expr)
+    # --- Konstanten (e nur isoliert!) ---
+    expr = re.sub(r"(?<![a-zA-Z])pi(?![a-zA-Z])", "np.pi", expr)
+    expr = re.sub(r"(?<![a-zA-Z])tau(?![a-zA-Z])", "(2*np.pi)", expr)
+    expr = re.sub(r"(?<![a-zA-Z])euler(?![a-zA-Z])", "np.e", expr)
+    expr = re.sub(r"(?<![a-zA-Z])e(?![a-zA-Z])", "np.e", expr)
+
+    # --- exp Platzhalter zurückwandeln ---
+    expr = re.sub(r"__EXP__\((.*?)\)", r"np.exp(\1)", expr)
 
     # --- Restliche Potenzen ---
     expr = expr.replace("^", "**")
@@ -149,7 +152,6 @@ def parser(expr: str) -> str:
     expr = combine_exponents(expr)
 
     return expr
-
 
 
 def interpreted(expr: str) -> str:
