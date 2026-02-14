@@ -257,7 +257,7 @@ settings_button = ttk.Button(
     command=open_settings,
     style='TButton'
 )
-settings_button.place(relx=0.99, y=10, anchor='ne')
+settings_button.place(relx=0.99, rely=0.98, anchor='se')
 
 def open_ableitung_popup():
     """Öffnet ein Popup-Fenster zur Auswahl der abzuleitenden Funktion."""
