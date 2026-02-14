@@ -3,6 +3,8 @@ import re
 import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+import matplotlib.colors as mc
+import colorsys
 from collections import deque, defaultdict
 from comp_input import parser
 from comp_input import interpreted
@@ -143,11 +145,15 @@ def on_scroll(event, ax, canvas):
     canvas.draw_idle()
 
 def lighter_color(color):
-    import matplotlib.colors as mc
-    import colorsys
     rgb = mc.to_rgb(color)
     hls = colorsys.rgb_to_hls(*rgb)
     return mc.to_hex(colorsys.hls_to_rgb(hls[0], 1 - 0.5*(1 - hls[1]), hls[2]))
+
+def darker_color(color):
+    rgb = mc.to_rgb(color)
+    hls = colorsys.rgb_to_hls(*rgb)
+    return mc.to_hex(colorsys.hls_to_rgb(hls[0], 0.5 * hls[1], hls[2]))
+
 
 def plot_functions(canvas, ax, error_label=None):
 

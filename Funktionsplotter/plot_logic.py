@@ -32,6 +32,16 @@ def gen_werte(func, allow_compl=False, start=-10, end=10, count=1000):
 
     return x, y
 
+def conv_to_func(expr):
+
+    expr = parser(expr)  
+
+    def func(x):
+        local_dict = {'x': x, 'np': np, 'rect': rect, 'tri': tri}
+        return eval(expr, {}, local_dict)
+
+    return func
+
 
 def gen_funcs(expr, allow_compl=False, start=-10, end=10, count=1000):
     x = np.linspace(start, end, count)

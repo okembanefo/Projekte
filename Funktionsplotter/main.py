@@ -1,13 +1,16 @@
 import tkinter as tk
-from tkinter import ttk, BooleanVar, Checkbutton, Toplevel, Frame, Canvas
+import numpy as np
+from tkinter import ttk, BooleanVar, Checkbutton, Toplevel, Frame, Canvas, messagebox, simpledialog
 import logic_gui
 import comp_input
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from add_ons import ableitung
-from tkinter import messagebox
-from comp_input import interpreted
+import matplotlib.pyplot as plt
+from add_ons import ableitung, integration
+from comp_input import interpreted, parser
+from plot_logic import conv_to_func
 from logic_gui import plot_functions
+from logic_gui import lighter_color, darker_color
 
 
 # Einheitliche Schriftart
@@ -287,11 +290,68 @@ def open_ableitung_popup():
     # Buttons für jede Funktion erstellen
     for func_name, func_str in func_list:
         idx = ['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)'].index(func_name)
+        base_color = logic_gui.colors[idx]
+        lighter_color_value = lighter_color(base_color)  # Hellere Farbe berechnen
+
         btn = tk.Button(
             frame,
             text=f"{func_name} = {interpreted(func_str)}",
             command=lambda name=func_name, s=func_str: plot_ableitung(name, s),
-            bg=logic_gui.colors[idx],
+            bg=lighter_color_value,  # Hellere Farbe verwenden
+            fg="black",  # Textfarbe auf Schwarz setzen für bessere Lesbarkeit
+            width=30,
+            height=2
+        )
+        btn.pack(pady=5)
+
+def select_integration_range(func_name, func_str):
+    """Öffnet ein Dialogfenster zur Eingabe des Integrationsbereichs."""
+    a = simpledialog.askfloat("Integrationsbereich", "Untergrenze (a):", parent=integration_popup)
+    b = simpledialog.askfloat("Integrationsbereich", "Obergrenze (b):", parent=integration_popup)
+
+    if a is not None and b is not None:
+        plot_integration(func_name, func_str, a, b)
+
+
+def open_integration_popup():
+    """Öffnet ein Popup-Fenster zur Auswahl der zu integrierenden Funktion."""
+    global integration_popup
+
+    # Wenn bereits ein Popup existiert, zuerst schließen
+    if 'integration_popup' in globals() and integration_popup is not None and integration_popup.winfo_exists():
+        integration_popup.destroy()
+        integration_popup = None
+
+    # Neues Popup erstellen
+    integration_popup = Toplevel(root)
+    integration_popup.title("Integration berechnen")
+    integration_popup.geometry("300x400")
+
+    frame = Frame(integration_popup)
+    frame.pack(padx=10, pady=10, fill='both')
+
+    # Durchlaufe die in logic_gui.func_dict gespeicherten Funktionen
+    func_list = []
+    for i, func_name in enumerate(['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)']):
+        if func_name in logic_gui.func_dict:
+            func_str = logic_gui.func_dict[func_name][0]  
+            func_list.append((func_name, func_str))
+
+    if not func_list:
+        tk.Label(frame, text="Keine Funktionen definiert.", font=font_style).pack(pady=10)
+        return
+
+    # Buttons für jede Funktion erstellen
+    for func_name, func_str in func_list:
+        idx = ['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)'].index(func_name)
+        base_color = logic_gui.colors[idx]
+        darker_color_value = darker_color(base_color)  # Dunklere Farbe berechnen
+
+        btn = tk.Button(
+            frame,
+            text=f"{func_name} = {interpreted(func_str)}",
+            command=lambda name=func_name, s=func_str: select_integration_range(name, s),
+            bg=darker_color_value,
             fg="white",
             width=30,
             height=2
@@ -327,6 +387,44 @@ def plot_ableitung(func_name, func_str):
             f"Ableitung konnte nicht berechnet werden: {e}"
         )
 
+def plot_integration(func_name, func_str, a, b):
+
+    try:
+        func = logic_gui.func_dict[func_name][0]
+        func = conv_to_func(func)
+
+        # Definiere die x-Werte
+        x = np.linspace(a - 1, b + 1, 400)
+        y = func(x)
+
+        fig, ax = plt.subplots()
+        ax.plot(x, y, label=f'{func_name} = {func_str}')
+        ax.axvline(x=a, color='gray', linestyle='--')
+        ax.axvline(x=b, color='gray', linestyle='--')
+
+
+        x_fill = np.linspace(a, b, 100)
+        y_fill = func(x_fill)
+        ax.fill_between(x_fill, y_fill, color='gray', alpha=0.3)
+
+        ax.set_title(f'Integral von {func_name} von {a} bis {b}')
+        ax.legend()
+
+        area = integration(func, a, b)
+
+        # GUI für die Anzeige des Plots
+        plot_window = Toplevel(root)
+        plot_window.title("Integral Plot")
+
+        canvas = FigureCanvasTkAgg(fig, master=plot_window)
+        canvas.draw()
+        canvas.get_tk_widget().pack()
+
+        # Fläche anzeigen
+        tk.Label(plot_window, text=f"Fläche unter der Kurve: {area:.2f}").pack(pady=10)
+
+    except Exception as e:
+        messagebox.showerror("Fehler", f"Fehler beim Plotten: {e}")
 
 
 # Buttons für Filter, Ableitung, Integration (untereinander)
@@ -348,6 +446,7 @@ ableitung_button.pack(fill='x', pady=10)
 integration_button = ttk.Button(
     button_frame,
     text="Integration",
+    command=open_integration_popup,
     style='TButton'
 )
 integration_button.pack(fill='x', pady=10)
