@@ -4,8 +4,8 @@ import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from collections import deque, defaultdict
-from funktion_parser import parser
-from funktion_parser import interpreted
+from comp_input import parser
+from comp_input import interpreted
 from plot_logic import gen_funcs
 
 # Globale Variablen für die Logik

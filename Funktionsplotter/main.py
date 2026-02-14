@@ -1,12 +1,12 @@
 import tkinter as tk
 from tkinter import ttk, BooleanVar, Checkbutton, Toplevel, Frame, Canvas
 import logic_gui
-import funktion_parser
+import comp_input
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from add_ons import ableitung
 from tkinter import messagebox
-from funktion_parser import interpreted
+from comp_input import interpreted
 from logic_gui import plot_functions
 
 
@@ -28,6 +28,7 @@ interpreted_labels = []
 delete_buttons = []
 color_circles = []
 plus_button = None
+ableitungs_popup = None
 
 def open_settings():
     """Öffnet das Einstellungsfenster."""
@@ -179,7 +180,7 @@ def update_interpretation(index):
     """Aktualisiert das Interpretationsfeld."""
     text = func_entries[index].get().strip()
     if text:
-        interpreted_expr = funktion_parser.interpreted(text)
+        interpreted_expr = comp_input.interpreted(text)
         interpreted_labels[index].config(text=f"Interpretiert als: {interpreted_expr}")
     else:
         interpreted_labels[index].config(text="Interpretiert als: ")
@@ -257,11 +258,19 @@ settings_button.pack(side="right", padx=5, pady=5)
 
 def open_ableitung_popup():
     """Öffnet ein Popup-Fenster zur Auswahl der abzuleitenden Funktion."""
-    popup = Toplevel(root)
-    popup.title("Ableitung berechnen")
-    popup.geometry("300x300")
+    global ableitungs_popup
 
-    frame = Frame(popup)
+    # Wenn bereits ein Popup existiert, zuerst schließen
+    if ableitungs_popup is not None and ableitungs_popup.winfo_exists():
+        ableitungs_popup.destroy()
+        ableitungs_popup = None
+
+    # Neues Popup erstellen
+    ableitungs_popup = Toplevel(root)
+    ableitungs_popup.title("Ableitung berechnen")
+    ableitungs_popup.geometry("300x300")
+
+    frame = Frame(ableitungs_popup)
     frame.pack(padx=10, pady=10, fill='both')
 
     # Durchlaufe die in logic_gui.func_dict gespeicherten Funktionen
@@ -288,7 +297,6 @@ def open_ableitung_popup():
             height=2
         )
         btn.pack(pady=5)
-
 
 def plot_ableitung(func_name, func_str):
     try:

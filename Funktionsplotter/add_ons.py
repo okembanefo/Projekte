@@ -1,4 +1,5 @@
 import re
+from comp_input import combine_exponents
 
 abl_map = {
     "sin(x)": "cos(x)",
@@ -14,6 +15,9 @@ abl_map = {
 def ableitung(expr: str) -> str:
     expr = expr.strip().replace(" ", "")
 
+    # --- Exponenten zusammenfassen bevor Ableitung ---
+    expr = combine_exponents(expr)
+
     # --- 0. Standardfunktionen mit Vorfaktor ---
     func_pattern = r"^([+-]?\d*\.?\d*)?(sin\(x\)|cos\(x\)|tan\(x\)|exp\(x\)|log\(x\)|ln\(x\)|sqrt\(x\)|1/x)$"
     match_func = re.match(func_pattern, expr)
@@ -21,7 +25,6 @@ def ableitung(expr: str) -> str:
     if match_func:
         coeff_str, func = match_func.groups()
 
-        # Vorfaktor bestimmen
         if coeff_str in ("", "+", None):
             coeff = 1.0
         elif coeff_str == "-":
@@ -29,15 +32,12 @@ def ableitung(expr: str) -> str:
         else:
             coeff = float(coeff_str)
 
-        # Ableitung aus Map
         derivative = abl_map[func]
 
-        # Falls Ableitung selbst ein Minus hat → Vorzeichen kombinieren
         if derivative.startswith("-"):
             coeff *= -1
             derivative = derivative[1:]
 
-        # Ausgabe formatieren
         if coeff == 1:
             return derivative
         elif coeff == -1:

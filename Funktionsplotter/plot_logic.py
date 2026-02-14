@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 import numpy as np
-from funktion_parser import parser
-from funktion_parser import rect
-from funktion_parser import tri
+from comp_input import parser
+from comp_input import rect
+from comp_input import tri
 
 user_funcs = []
 
