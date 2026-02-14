@@ -8,9 +8,8 @@ user_funcs = []
 
 def gen_werte(func, allow_compl=False, start=-10, end=10, count=1000):
     x = np.linspace(start, end, count)
-
     with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
-        y = eval(func, {"__builtins__": None}, {"x": x, "np": np})
+        y = eval(func, {"np": np}, {"x": x})
 
         if np.isscalar(y):
             y = np.full_like(x, y, dtype=float)
@@ -21,13 +20,12 @@ def gen_werte(func, allow_compl=False, start=-10, end=10, count=1000):
             if allow_compl:
                 y = np.real(y)
             else:
-                valid_mask = np.isreal(y)
+                valid_mask = np.imag(y) == 0
                 x = x[valid_mask]
                 y = np.real(y[valid_mask])
 
         y = y.astype(float)
 
-        # Entferne unendliche Werte und NaNs
         valid_mask = np.isfinite(y)
         x = x[valid_mask]
         y = y[valid_mask]
@@ -38,15 +36,8 @@ def gen_werte(func, allow_compl=False, start=-10, end=10, count=1000):
 def gen_funcs(expr, allow_compl=False, start=-10, end=10, count=1000):
     x = np.linspace(start, end, count)
 
-    eval_namespace = {
-        'np': np,
-        'x': x,
-        'rect': rect,
-        'tri': tri
-    }
-
     try:
-        y = eval(expr, {"__builtins__": None}, eval_namespace)
+        y = eval(expr, {'np': np, 'x': x})
     except Exception as e:
         raise ValueError(f"Fehler bei der Auswertung: {e}")
 
@@ -59,13 +50,12 @@ def gen_funcs(expr, allow_compl=False, start=-10, end=10, count=1000):
         if allow_compl:
             y = np.real(y)
         else:
-            valid_mask = np.isreal(y)
+            valid_mask = np.imag(y) == 0
             x = x[valid_mask]
             y = np.real(y[valid_mask])
 
     y = y.astype(float)
 
-    # Entferne unendliche Werte und NaNs
     valid_mask = np.isfinite(y)
     x = x[valid_mask]
     y = y[valid_mask]

@@ -191,7 +191,7 @@ def on_entry_change(event, index):
         return
 
     text = func_entries[index].get().strip()
-    func_name = ['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)'][index]
+    func_name = ['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)'][index]   
 
     if text:
         try:
