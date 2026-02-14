@@ -13,93 +13,107 @@ abl_map = {
     "1/x": "-1/x**2"
 }
 
-def ableitung(expr: str) -> str:
-    expr = expr.strip().replace(" ", "")
+def simplify_funcs(expr: str) -> str:
+    expr = expr.strip()
+    expr = re.sub(r"([+-]?\d*\.?\d*)?\*?sqrt\((x)\)", lambda m: (m.group(1) or "") + "x^(1/2)", expr)
+    funcs = ["sin", "cos", "tan", "exp", "ln", "log"]
+    for f in funcs:
+        pattern = rf"([+-]?\d*\.?\d*)?\*?{f}\((x)\)"
+        expr = re.sub(pattern, lambda m, func=f: (m.group(1) or "") + f"{func}(x)", expr)
+    return expr
 
-    # --- vereinfachen von sqrt, sinc und Funktionen ---
+def ableitung(expr: str) -> str:
+    expr = expr.replace(" ", "")
     expr = simplify_funcs(expr)
 
-    # --- Standardfunktionen mit Vorfaktor ---
-    func_pattern = r"^([+-]?\d*\.?\d*)?(sin\(x\)|cos\(x\)|tan\(x\)|exp\(x\)|log\(x\)|ln\(x\)|x\^\(1/2\)|1/x|sin\(x\)/x)$"
-    match_func = re.match(func_pattern, expr)
+    def split_terms(e):
+        terms, bracket_level, current = [], 0, ""
+        for i, c in enumerate(e):
+            if c == '(':
+                bracket_level += 1
+            elif c == ')':
+                bracket_level -= 1
+            if c in '+-' and bracket_level == 0 and i != 0:
+                terms.append(current)
+                current = c
+            else:
+                current += c
+        terms.append(current)
+        return terms
 
-    if match_func:
-        coeff_str, func = match_func.groups()
-        if coeff_str in ("", "+", None):
-            coeff = 1.0
-        elif coeff_str == "-":
-            coeff = -1.0
-        else:
-            coeff = float(coeff_str)
+    def parse_factor_and_inner(term):
+        match = re.match(r'^([+-]?\d*\.?\d*)?([a-zA-Z]+\(.+\)|x\^\(?[0-9./+-]+\)?|x|1/x)$', term)
+        if match:
+            coeff_str, inner = match.groups()
+            if coeff_str in ("", "+", None):
+                coeff = 1.0
+            elif coeff_str == "-":
+                coeff = -1.0
+            else:
+                coeff = float(coeff_str)
+            return coeff, inner
+        return 1.0, term
 
-        # Ableitung bestimmen
-        if func == "x^(1/2)":
-            derivative = "1/2x^(-1/2)"
-        elif func == "sin(x)/x":
-            # Produktregel: (u/v)' = (u'v - uv')/v^2
-            derivative = "(cos(x)*x - sin(x))/x^2"
-        else:
-            derivative = abl_map.get(func, f"d/dx({func})")
+    def extract_inner_factor(inner):
+        match = re.match(r'^([+-]?\d*\.?\d*)\*?x$', inner)
+        if match:
+            factor_str = match.group(1)
+            if factor_str in ("", "+"):
+                return 1.0
+            elif factor_str == "-":
+                return -1.0
+            else:
+                return float(factor_str)
+        match = re.match(r'^x/([+-]?\d*\.?\d+)$', inner)
+        if match:
+            return 1/float(match.group(1))
+        return 1.0
 
-        if derivative.startswith("-"):
-            coeff *= -1
-            derivative = derivative[1:]
+    def derivative_func(inner, coeff=1.0):
+        # Potenzen x^n
+        match_pow = re.match(r'^x\^\(?([+-]?\d+(\.\d+)?)\)?$', inner)
+        if match_pow:
+            exp = float(match_pow.group(1))
+            total_coeff = coeff * exp
+            new_exp = exp - 1
+            if new_exp == 0:
+                return f"{total_coeff:g}"
+            elif new_exp == 1:
+                return f"{total_coeff:g}x"
+            else:
+                exp_str = str(int(new_exp)) if new_exp.is_integer() else f"({new_exp})"
+                return f"{total_coeff:g}x^{exp_str}"
 
-        if coeff == 1:
-            return derivative
-        elif coeff == -1:
-            return f"-{derivative}"
-        else:
-            coeff_out = int(coeff) if coeff.is_integer() else coeff
-            return f"{coeff_out}{derivative}"
+        # Standardfunktionen aus abl_map
+        if inner in abl_map:
+            der = abl_map[inner]
+            return f"{coeff:g}*{der}" if coeff != 1 else der
 
-    # --- Potenzen mit Vorfaktor ---
-    match_pow_with_coeff = re.match(r"^([+-]?\d*\.?\d*)x\^\(?([+-]?\d+(\.\d+)?)\)?$", expr)
-    if match_pow_with_coeff:
-        coeff_str, exponent_str, _ = match_pow_with_coeff.groups()
-        coeff = (
-            float(coeff_str)
-            if coeff_str not in ("+", "-", "")
-            else 1.0 if coeff_str in ("", "+") else -1.0
-        )
-        exponent = float(exponent_str)
-        new_coeff = coeff * exponent
-        new_exponent = exponent - 1
-        if new_exponent == 1:
-            return f"{int(new_coeff) if new_coeff.is_integer() else new_coeff}x"
-        elif new_exponent == 0:
-            return f"{int(new_coeff) if new_coeff.is_integer() else new_coeff}"
-        else:
-            coeff_out = int(new_coeff) if new_coeff.is_integer() else new_coeff
-            return f"{coeff_out}x^{new_exponent}"
+        # Verschachtelte Funktionen f(g(x)) → Kettenregel
+        func_match = re.match(r'([a-zA-Z]+)\((.+)\)', inner)
+        if func_match:
+            f, g = func_match.groups()
+            inner_factor = extract_inner_factor(g)
+            total_coeff = coeff * inner_factor
+            outer = abl_map.get(f"{f}(x)", None)
+            if outer:
+                outer = outer.replace("x", g)
+                return f"{total_coeff:g}*{outer}"  # d_g entfällt, inner_factor ist schon multipliziert
+            else:
+                return f"{total_coeff:g}*d/dx({inner})"
 
-    # --- Potenzen ohne Vorfaktor ---
-    match_pow = re.match(r"^x\^\(?([+-]?\d+(\.\d+)?)\)?$", expr)
-    if match_pow:
-        exponent = float(match_pow.group(1))
-        new_coeff = exponent
-        new_exponent = exponent - 1
-        if new_exponent == 1:
-            return f"{new_coeff}x"
-        elif new_exponent == 0:
-            return f"{new_coeff}"
-        else:
-            return f"{new_coeff}x^{new_exponent}"
+        if inner == "x":
+            return f"{coeff:g}"
+        if re.fullmatch(r'[+-]?\d+(\.\d+)?', inner):
+            return "0"
+        return f"{coeff:g}*d/dx({inner})"
 
-    # --- Linear ---
-    match_linear = re.match(r"^([+-]?\d*\.?\d*)x$", expr)
-    if match_linear:
-        coeff_str = match_linear.group(1)
-        coeff = (
-            float(coeff_str)
-            if coeff_str not in ("+", "-", "")
-            else 1.0 if coeff_str in ("", "+") else -1.0
-        )
-        return f"{int(coeff) if coeff.is_integer() else coeff}"
+    terms = split_terms(expr)
+    derivatives = []
+    for term in terms:
+        if not term:
+            continue
+        coeff, inner = parse_factor_and_inner(term)
+        derivatives.append(derivative_func(inner, coeff))
 
-    # --- Konstante ---
-    match_const = re.match(r"^[+-]?\d*\.?\d+$", expr)
-    if match_const:
-        return "0"
-
-    return f"d/dx({expr})"
+    return '+'.join(derivatives).replace('+-','-')

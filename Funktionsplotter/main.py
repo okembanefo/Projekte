@@ -268,7 +268,7 @@ def open_ableitung_popup():
     # Neues Popup erstellen
     ableitungs_popup = Toplevel(root)
     ableitungs_popup.title("Ableitung berechnen")
-    ableitungs_popup.geometry("300x300")
+    ableitungs_popup.geometry("300x400")
 
     frame = Frame(ableitungs_popup)
     frame.pack(padx=10, pady=10, fill='both')

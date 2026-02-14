@@ -59,6 +59,7 @@ def simplify_funcs(expr: str) -> str:
     trig_funcs = ["sin", "cos", "tan", "exp", "ln", "log"]  # ggf. erweitern
     for f in trig_funcs:
         pattern = rf"([+-]?\d*\.?\d*)?\*?{f}\((x)\)"
+
         def func_replace(match, func=f):
             coeff = match.group(1)
             if coeff is None or coeff in ("", "+"):
@@ -67,16 +68,6 @@ def simplify_funcs(expr: str) -> str:
                 coeff = "-"
             return f"{coeff}{func}(x)"
         expr = re.sub(pattern, func_replace, expr)
-
-    # --- 3. sinc(x) -> sin(x)/x ---
-    def sinc_replace(match):
-        coeff = match.group(1)
-        if coeff is None or coeff in ("", "+"):
-            coeff = ""
-        elif coeff == "-":
-            coeff = "-"
-        return f"{coeff}sin(x)/x"
-    expr = re.sub(r"([+-]?\d*\.?\d*)?\*?sinc\((x)\)", sinc_replace, expr)
 
     return expr
 
