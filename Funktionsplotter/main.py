@@ -305,13 +305,38 @@ def open_ableitung_popup():
         btn.pack(pady=5)
 
 def select_integration_range(func_name, func_str):
-    """Öffnet ein Dialogfenster zur Eingabe des Integrationsbereichs."""
-    a = simpledialog.askfloat("Integrationsbereich", "Untergrenze (a):", parent=integration_popup)
-    b = simpledialog.askfloat("Integrationsbereich", "Obergrenze (b):", parent=integration_popup)
+    """Öffnet ein Dialogfenster zur Eingabe des Integrationsbereichs als Text (z.B. '0', 'pi', '2*pi')."""
+    range_popup = Toplevel(integration_popup)
+    range_popup.title(f"Integrationsbereich für {func_name}")
+    range_popup.geometry("250x200")
 
-    if a is not None and b is not None:
+    tk.Label(range_popup, text="Untergrenze (a):").pack(pady=5)
+    entry_a = tk.Entry(range_popup)
+    entry_a.pack(pady=5)
+    tk.Label(range_popup, text="Obergrenze (b):").pack(pady=5)
+    entry_b = tk.Entry(range_popup)
+    entry_b.pack(pady=5)
+
+    spec_cons = {
+        "pi": np.pi,
+        "e": np.e,
+        "euler": np.e,
+        "tau": 2*np.pi
+    }
+
+    def submit():
+        a_str = entry_a.get()
+        b_str = entry_b.get()
+        try:
+            a = eval(a_str, {"np": np}, spec_cons)
+            b = eval(b_str, {"np": np}, spec_cons)
+        except Exception as e:
+            messagebox.showerror("Fehler", f"Ungültiger Wert: {e}")
+            return
+        range_popup.destroy()
         plot_integration(func_name, func_str, a, b)
 
+    tk.Button(range_popup, text="OK", command=submit).pack(pady=10)
 
 def open_integration_popup():
     """Öffnet ein Popup-Fenster zur Auswahl der zu integrierenden Funktion."""
@@ -375,7 +400,7 @@ def plot_ableitung(func_name, func_str):
         func_list = logic_gui.func_dict[func_name]
 
         if len(func_list) >= 2:
-            func_list[1] = deriv_str      # ersetzen
+            func_list[1] = deriv_str    
         else:
             func_list.insert(1, deriv_str)
 
@@ -393,7 +418,6 @@ def plot_integration(func_name, func_str, a, b):
         func = logic_gui.func_dict[func_name][0]
         func = conv_to_func(func)
 
-        # Definiere die x-Werte
         x = np.linspace(a - 1, b + 1, 400)
         y = func(x)
 
@@ -407,9 +431,9 @@ def plot_integration(func_name, func_str, a, b):
         y_fill = func(x_fill)
         ax.fill_between(x_fill, y_fill, color='gray', alpha=0.3)
 
-        ax.set_title(f'Integral von {func_name} von {a} bis {b}')
+        ax.set_title(f'Integral von {func_name} von {a:.2f} bis {b:.2f}')
         ax.legend()
-
+        
         area = integration(func, a, b)
 
         # GUI für die Anzeige des Plots
@@ -421,7 +445,7 @@ def plot_integration(func_name, func_str, a, b):
         canvas.get_tk_widget().pack()
 
         # Fläche anzeigen
-        tk.Label(plot_window, text=f"Fläche unter der Kurve: {area:.2f}").pack(pady=10)
+        tk.Label(plot_window, text=f"Fläche: {area:.2f}").pack(pady=10)
 
     except Exception as e:
         messagebox.showerror("Fehler", f"Fehler beim Plotten: {e}")
