@@ -490,25 +490,48 @@ rft_button = ttk.Button(
 rft_button.pack(fill='x', pady=10)
 
 def open_legend():
-    """Öffnet ein Popup, das alle verfügbaren Funktionen und Konstanten zeigt."""
     legend_popup = Toplevel(root)
     legend_popup.title("Legende")
-    legend_popup.geometry("350x600")
+    legend_popup.geometry("350x900")
 
     frame = Frame(legend_popup)
     frame.pack(padx=10, pady=10, fill='both', expand=True)
 
-    tk.Label(frame, text="Verfügbare Funktionen:", font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+    tk.Label(frame, text="Standardoperationen:", font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+
+    tk.Label(frame, text="x^2      →   x²", font=font_style).pack(anchor='w')
+    tk.Label(frame, text="x^(10)   →   x¹⁰", font=font_style).pack(anchor='w')
+    tk.Label(frame, text="x^(-5)   →   x⁻⁵", font=font_style).pack(anchor='w')
+    tk.Label(frame, text="x^(2x)   →   x²ˣ", font=font_style).pack(anchor='w')
+
+    row_frame = Frame(frame)
+    row_frame.pack(anchor='w', padx=0)
+
+    tk.Label(row_frame, text="x^(1/x)  →", font=font_style).pack(side="left")
+
+    frac_frame = Frame(row_frame)
+    frac_frame.pack(side="left")
+
+    small_font = ('Segoe UI', 9)
+
+    tk.Label(frac_frame, text="  1", font=small_font).pack()
+    tk.Label(frac_frame, text="  ─", font=small_font).pack()
+    tk.Label(frac_frame, text="  x", font=small_font).pack()
+
+    tk.Label(frame, text="", font=font_style).pack()
+
+    tk.Label(frame, text="Spezielle Funktionen:", font=('Segoe UI', 11, 'bold')).pack(anchor='w')
     for name, expr in comp_input.spec_funcs.items():
         tk.Label(frame, text=f"{name} → {expr}", font=font_style).pack(anchor='w')
 
-    tk.Label(frame, text="", font=font_style).pack()  # Leerzeile
+    tk.Label(frame, text="", font=font_style).pack()
 
     tk.Label(frame, text="Verfügbare Konstanten:", font=('Segoe UI', 11, 'bold')).pack(anchor='w')
     for name, expr in comp_input.spec_cons.items():
         tk.Label(frame, text=f"{name} → {expr}", font=font_style).pack(anchor='w')
 
     tk.Button(frame, text="Schließen", command=legend_popup.destroy).pack(pady=10)
+
 
 # --- Legende-Button unten links --- 
 legend_button = ttk.Button(
