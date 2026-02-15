@@ -4,13 +4,14 @@ from comp_input import combine_exponents
 from comp_input import simplify_funcs
 
 abl_map = {
+    "sinc(x)": "(np.pi*x*np.cos(np.pi*x)-sin(np.pi*x))/(np.pi*x^2)",
     "sin(x)": "cos(x)",
     "cos(x)": "-sin(x)",
     "tan(x)": "1/cos(x)**2",
     "exp(x)": "exp(x)",
     "log(x)": "1/x",
     "ln(x)": "1/x",
-    "sqrt(x)": "1/(2*sqrt(x))",
+    "sqrt(x)": "1/2*x^(-1/2)",
     "1/x": "-1/x**2"
 }
 
