@@ -108,6 +108,7 @@ def combine_exponents(expr: str) -> str:
 
 def parser(expr: str) -> str:
     expr = expr.strip().replace(" ", "")
+    expr = expr.replace(",", ".") 
 
     if re.search(r"(^|[^a-zA-Z])e\^", expr):
         raise ValueError("Bitte verwende exp(x) statt e^x oder e^(...).")
@@ -154,6 +155,7 @@ def parser(expr: str) -> str:
 
 def interpreted(expr: str) -> str:
     expr = expr.strip().replace(" ", "")
+    expr = expr.replace(".", ",") 
 
     # Nur direkte Benutzereingabe: pi → π, tau → τ
     expr = expr.replace("pi", "π").replace("tau", "τ")

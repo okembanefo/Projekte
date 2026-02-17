@@ -17,7 +17,7 @@ schriftart = "Calibri"
 farbe = "darkslategrey"
 text = (schriftart, 12)
 sm_text = (schriftart, 10)
-aktion = (schriftart, 15)
+aktion = (schriftart, 18)
 entry = (schriftart, 12)
 plt.rcParams['font.family'] = schriftart
 plt.rcParams['font.size'] = 10
@@ -150,7 +150,7 @@ def add_input_field():
 
     row = len(func_entries)
     entry_frame = ttk.Frame(input_frame)
-    entry_frame.grid(row=row, column=0, columnspan=2, padx=5, pady=15, sticky='ew')
+    entry_frame.grid(row=row, column=0, columnspan=2, padx=5, pady=20, sticky='ew')
 
     # Farbiger Kreis
     circle = Canvas(entry_frame, width=20, height=20, bg=logic_gui.colors[row], bd=0, highlightthickness=0)
@@ -158,7 +158,7 @@ def add_input_field():
 
     # Eingabefeld
     entry = ttk.Entry(entry_frame, width=20, font=text)
-    entry.grid(row=0, column=1, sticky='ew')
+    entry.grid(row=0, column=1, sticky='ew', ipady=5)            
 
     # Interpretationsfeld
     interpreted_label = ttk.Label(
@@ -339,15 +339,12 @@ def on_entry_change(event, index):
         interpreted_labels[index].config(text="Interpretiert als: ", foreground="gray")
 
 def open_ableitung_popup():
-    """Öffnet ein Popup-Fenster zur Auswahl der abzuleitenden Funktion."""
     global ableitungs_popup
 
-    # Wenn bereits ein Popup existiert, zuerst schließen
     if ableitungs_popup is not None and ableitungs_popup.winfo_exists():
         ableitungs_popup.destroy()
         ableitungs_popup = None
 
-    # Neues Popup erstellen
     ableitungs_popup = Toplevel(root)
     ableitungs_popup.title("Ableitung berechnen")
     ableitungs_popup.geometry("300x400")
@@ -355,35 +352,35 @@ def open_ableitung_popup():
     frame = Frame(ableitungs_popup)
     frame.pack(padx=10, pady=10, fill='both')
 
-    # Durchlaufe die in logic_gui.func_dict gespeicherten Funktionen
     func_list = []
     for i, func_name in enumerate(logic_gui.func_names):
         if func_name in logic_gui.func_dict:
-            func_str = logic_gui.func_dict[func_name][0]  # Erste Funktion in der Liste
+            func_str = logic_gui.func_dict[func_name][0]
             func_list.append((func_name, func_str))
 
     if not func_list:
         tk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
         return
 
-    # Buttons für jede Funktion erstellen
     for func_name, func_str in func_list:
         idx = logic_gui.func_names.index(func_name)
         base_color = logic_gui.colors[idx]
 
-        btn = tk.Button(
-            frame,
+        container = Frame(frame)
+        container.pack(pady=5, fill='x')
+
+        circle = Canvas(container, width=20, height=20, bg=base_color, bd=0, highlightthickness=0)
+        circle.pack(side='left', padx=(0, 5))
+
+        btn = ttk.Button(
+            container,
             text=f"{func_name} = {interpreted(func_str)}",
             command=lambda name=func_name, s=func_str: plot_ableitung(name, s),
-            bg=base_color,
-            fg="white",
-            font=text,
-            width=30,
-            height=2,
-            relief="raised",
-            bd=2
+            style="TextButton.TButton",
+            padding=(5, 12)
         )
-        btn.pack(pady=5)
+        btn.pack(side='left', fill='x', expand=True)
+
 
 def select_integration_range(func_name, func_str):
     """Öffnet ein Dialogfenster zur Eingabe des Integrationsbereichs als Text (z.B. '0', 'pi', '2*pi')."""
@@ -420,15 +417,12 @@ def select_integration_range(func_name, func_str):
     tk.Button(range_popup, text="OK", command=submit).pack(pady=10)
 
 def open_integration_popup():
-    """Öffnet ein Popup-Fenster zur Auswahl der zu integrierenden Funktion."""
     global integration_popup
 
-    # Wenn bereits ein Popup existiert, zuerst schließen
     if 'integration_popup' in globals() and integration_popup is not None and integration_popup.winfo_exists():
         integration_popup.destroy()
         integration_popup = None
 
-    # Neues Popup erstellen
     integration_popup = Toplevel(root)
     integration_popup.title("Integration berechnen")
     integration_popup.geometry("300x400")
@@ -436,36 +430,35 @@ def open_integration_popup():
     frame = Frame(integration_popup)
     frame.pack(padx=10, pady=10, fill='both')
 
-    # Durchlaufe die in logic_gui.func_dict gespeicherten Funktionen
     func_list = []
     for i, func_name in enumerate(logic_gui.func_names):
         if func_name in logic_gui.func_dict:
-            func_str = logic_gui.func_dict[func_name][0]  
+            func_str = logic_gui.func_dict[func_name][0]
             func_list.append((func_name, func_str))
 
     if not func_list:
         ttk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
         return
 
-    # Buttons für jede Funktion erstellen
     for func_name, func_str in func_list:
         idx = logic_gui.func_names.index(func_name)
         base_color = logic_gui.colors[idx]
 
-        btn = tk.Button(
-            frame,
+        container = Frame(frame)
+        container.pack(pady=5, fill='x')
+
+        circle = Canvas(container, width=20, height=20, bg=base_color, bd=0, highlightthickness=0)
+        circle.pack(side='left', padx=(0, 5))
+
+        btn = ttk.Button(
+            container,
             text=f"{func_name} = {interpreted(func_str)}",
             command=lambda name=func_name, s=func_str: select_integration_range(name, s),
-            bg=base_color,
-            fg="white",
-            font=text,
-            width=30,
-            height=2,
-            relief="raised",
-            bd=2
+            style="TextButton.TButton",
+            padding=(5, 12)
         )
-        btn.pack(pady=5)
-
+        btn.pack(side='left', fill='x', expand=True)
+        
 def plot_ableitung(func_name, func_str):
     try:
         deriv_str = ableitung(func_str)
@@ -578,13 +571,15 @@ def open_legend():
     tk.Button(frame, text="Schließen", command=legend_popup.destroy).pack(pady=10)
 
 
-# Buttons für Filter, Ableitung, Integration (untereinander)
+# Buttons für Filter, Ableitung, Integration 
+button_frame = ttk.Frame(root)
+button_frame.place(relx=0.915, rely=0.3, anchor='center', height=500, relwidth=0.15)   
+
 filter_button = ttk.Button(
     button_frame,
     text="Filter",
     style="TextButton.TButton"
 )
-filter_button.pack(fill='x', pady=10)
 
 ableitung_button = ttk.Button(
     button_frame,
@@ -592,7 +587,6 @@ ableitung_button = ttk.Button(
     command=open_ableitung_popup,
     style="TextButton.TButton"
 )
-ableitung_button.pack(fill='x', pady=10)
 
 integration_button = ttk.Button(
     button_frame,
@@ -600,39 +594,24 @@ integration_button = ttk.Button(
     command=open_integration_popup,
     style="TextButton.TButton"
 )
-integration_button.pack(fill='x', pady=10)
 
 ft_button = ttk.Button(
     button_frame,
     text="Fouriertransformierte",
     style="TextButton.TButton"
 )
-ft_button.pack(fill='x', pady=10)
 
 rft_button = ttk.Button(
     button_frame,
     text="Rücktransformierte",
     style="TextButton.TButton"
 )
-rft_button.pack(fill='x', pady=10)
 
-# --- Legende-Button unten links --- 
-legend_button = ttk.Button(
-    root,
-    text="Legende",
-    command=open_legend,
-    style="TextButton.TButton"
-)
-legend_button.place(relx=0.01, rely=0.95, anchor='sw')
-
-settings_button = ttk.Button(
-    root,
-    text="Einstellungen",
-    command=open_settings,
-    style="TextButton.TButton"
-)
-settings_button.place(relx=0.99, rely=0.95, anchor='se') 
-
+filter_button.pack(fill='x', pady=10, ipady=9)
+ableitung_button.pack(fill='x', pady=10, ipady=9)
+integration_button.pack(fill='x', pady=10, ipady=9)
+ft_button.pack(fill='x', pady=10, ipady=9)
+rft_button.pack(fill='x', pady=10, ipady=9)
 
 # Event-Bindings für Zoomen/Panning
 canvas.mpl_connect("button_press_event", lambda event: logic_gui.on_press(event, ax, canvas))
