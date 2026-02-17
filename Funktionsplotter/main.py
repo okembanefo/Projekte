@@ -1,6 +1,6 @@
 import tkinter as tk
 import numpy as np
-from tkinter import ttk, BooleanVar, Checkbutton, Toplevel, Frame, Canvas, messagebox, simpledialog
+from tkinter import ttk, BooleanVar, Checkbutton, Toplevel, Frame, Canvas, messagebox, simpledialog, font
 import logic_gui
 import comp_input
 from matplotlib.figure import Figure
@@ -9,12 +9,39 @@ import matplotlib.pyplot as plt
 from add_ons import ableitung, integration
 from comp_input import interpreted, parser
 from plot_logic import conv_to_func
-from logic_gui import plot_functions
-from logic_gui import lighter_color, darker_color
+from logic_gui import plot_functions, lighter_color, darker_color
 
 
-# Einheitliche Schriftart
-font_style = ('Segoe UI', 10)
+# Einheitliche Schriftart und Farbe
+schriftart = "Calibri"
+farbe = "darkslategrey"
+text = (schriftart, 12)
+sm_text = (schriftart, 10)
+aktion = (schriftart, 15)
+entry = (schriftart, 12)
+plt.rcParams['font.family'] = schriftart
+plt.rcParams['font.size'] = 10
+
+# Styles für Textbutton und Aktionsbutton
+style = ttk.Style()
+style.configure('TextButton.TButton', font=text)
+style.configure('AktionButton.TButton', font=aktion)
+style.configure(
+    "TEntry",
+    font=text,
+    fieldbackground="white",
+    bordercolor="gray",
+    lightcolor="gray",
+    darkcolor="gray"
+)
+
+style.map(
+    "TEntry",
+    bordercolor=[("focus", farbe)],
+    lightcolor=[("focus", farbe)],
+    darkcolor=[("focus", farbe)]
+)
+
 
 # Hauptfenster
 root = tk.Tk()
@@ -33,6 +60,54 @@ color_circles = []
 plus_button = None
 ableitungs_popup = None
 
+
+# Hauptframe für Eingabefelder und Koordinatensystem
+main_frame = ttk.Frame(root)
+main_frame.pack(fill='both', expand=True)
+
+# Frame für Eingabefelder (links)
+input_frame = ttk.Frame(main_frame, width=int(screen_width*0.8*1/3))
+input_frame.pack(side='left', fill='y', padx=5, pady=10)
+input_frame.pack_propagate(False)
+
+# Frame für Koordinatensystem (mittig)
+plot_frame = ttk.Frame(main_frame, height=400) 
+plot_frame.pack(side='left', fill='both', expand=True, padx=5, pady=5)
+plot_frame.pack_propagate(False)
+
+# Frame für Buttons (rechts)
+button_frame = ttk.Frame(main_frame, width=int(screen_width*0.8*1/5))
+button_frame.pack(side='right', fill='y', padx=5, pady=10)
+button_frame.pack_propagate(False)
+
+# Koordinatensystem
+fig = Figure(figsize=(6, 4.5))
+ax = fig.add_subplot(111)
+canvas = FigureCanvasTkAgg(fig, master=plot_frame)
+canvas.get_tk_widget().pack(fill='both', expand=True)
+
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+
+ax.spines["bottom"].set_linewidth(1)
+ax.spines["left"].set_linewidth(1)
+
+ax.spines["left"].set_linestyle("-")
+ax.spines["left"].set_linestyle("-")
+
+ax.spines["bottom"].set_color(farbe)   # x-Achse
+ax.spines["left"].set_color(farbe)    # y-Achse
+
+ax.set_xlabel("")
+ax.set_ylabel("")
+
+ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
+
+# Fehlerlabel
+error_label = ttk.Label(root, text="", foreground="red", font=text)
+error_label.pack(pady=5)
+
+
 def open_settings():
     """Öffnet das Einstellungsfenster."""
     settings_window = Toplevel(root)
@@ -43,11 +118,11 @@ def open_settings():
     frame.pack(padx=10, pady=10, fill='both')
 
     rad_var = BooleanVar(value=logic_gui.axis_in_radians)
-    rad_check = Checkbutton(frame, text="Achsen in Bogenmaß", variable=rad_var, font=font_style)
+    rad_check = Checkbutton(frame, text="Achsen in Bogenmaß", variable=rad_var, font=text)
     rad_check.pack(anchor='w', pady=5)
 
     pos_var = BooleanVar(value=logic_gui.show_positive_only)
-    pos_check = Checkbutton(frame, text="Nur positive Y-Werte anzeigen", variable=pos_var, font=font_style)
+    pos_check = Checkbutton(frame, text="Nur positive Y-Werte anzeigen", variable=pos_var, font=text)
     pos_check.pack(anchor='w', pady=5)
 
     def apply_settings():
@@ -68,11 +143,9 @@ def open_settings():
     ttk.Button(frame, text="Zurücksetzen", command=reset_settings).pack()
 
 def add_input_field():
-    """Fügt ein neues Eingabefeld hinzu (max. 5)."""
     global plus_button
 
-
-    if len(func_entries) >= 5:
+    if len(func_entries) >= logic_gui.max_funcs:
         return
 
     row = len(func_entries)
@@ -84,16 +157,7 @@ def add_input_field():
     circle.grid(row=0, column=0, padx=(0, 5))
 
     # Eingabefeld
-    entry = tk.Entry(
-        entry_frame,
-        width=20,
-        font=('Segoe UI', 12),
-        bd=1,
-        relief='solid',
-        highlightthickness=1,
-        highlightcolor='lightgray',
-        highlightbackground='lightgray'
-    )
+    entry = ttk.Entry(entry_frame, width=20, font=text)
     entry.grid(row=0, column=1, sticky='ew')
 
     # Interpretationsfeld
@@ -101,16 +165,17 @@ def add_input_field():
         entry_frame,
         text="Interpretiert als: ",
         foreground="gray",
-        font=('Segoe UI', 9)
+        font=sm_text
     )
     interpreted_label.grid(row=1, column=0, columnspan=2, sticky='w')
-    interpreted_label.grid_remove()  # Verwende row statt index
+    interpreted_label.grid_remove()  
 
     delete_button = ttk.Button(
         entry_frame,
         text="X",
         width=2,
-        command=lambda idx=row: delete_input_field(idx)
+        command=lambda idx=row: delete_input_field(idx),
+        style="AktionButton.TButton"
     )
     delete_button.grid(row=0, column=2, padx=2)
 
@@ -126,49 +191,88 @@ def add_input_field():
     if plus_button:
         plus_button.destroy()
 
-    if len(func_entries) < 5:
+    if len(func_entries) < logic_gui.max_funcs:
         plus_button = ttk.Button(
             input_frame,
             text="+",
             width=3,
-            command=add_input_field
+            command=add_input_field,
+            style="AktionButton.TButton"
         )
         plus_button.grid(row=row+1, column=0, columnspan=2, pady=10)
 
-
 def delete_input_field(index):
-    """Löscht das Eingabefeld an der gegebenen Position."""
     global plus_button
 
     if index >= len(func_entries):
         return
 
-    func_name = ['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)'][index]
-    if func_name in logic_gui.func_dict:
-        del logic_gui.func_dict[func_name]
+    # --- Widgets zerstören ---
+    try:
+        func_entries[index].master.destroy()
+        interpreted_labels[index].destroy()
+        delete_buttons[index].destroy()
+        color_circles[index].destroy()
+    except Exception as e:
+        print(f"Fehler beim Löschen der Widgets: {e}")
 
-    func_entries[index].master.destroy()
-    interpreted_labels[index].destroy()
-    delete_buttons[index].destroy()
-
+    # --- Entferne aus Listen ---
     del func_entries[index]
     del interpreted_labels[index]
     del delete_buttons[index]
     del color_circles[index]
 
+    # --- Funktion aus func_dict löschen ---
+    func_keys = list(logic_gui.func_dict.keys())
+    if index < len(func_keys):
+        key_to_delete = func_keys[index]
+        del logic_gui.func_dict[key_to_delete]
+
+    # --- Alle verbleibenden Funktionen nach oben verschieben ---
+    new_func_dict = {}
+    remaining_keys = list(logic_gui.func_dict.keys())
+    for new_key_index, old_key in enumerate(remaining_keys):
+        new_key = logic_gui.func_names[new_key_index]
+        new_func_dict[new_key] = logic_gui.func_dict[old_key]
+    logic_gui.func_dict = new_func_dict
+
+    # --- Alle Eingabefelder neu anordnen, Farben und Index anpassen ---
+    for row, entry in enumerate(func_entries):
+        frame = entry.master
+        frame.grid(row=row, column=0, columnspan=2, padx=5, pady=15, sticky='ew')
+
+        # Farbkreis aktualisieren
+        color_circles[row].config(bg=logic_gui.colors[row])
+
+        # Bindings mit neuem Index setzen
+        entry.bind("<FocusIn>", lambda e, idx=row: on_focus_in(idx))
+        entry.bind("<FocusOut>", lambda e, idx=row: on_focus_out(idx))
+        entry.bind("<KeyRelease>", lambda e, idx=row: on_entry_change(e, idx))
+        delete_buttons[row].config(command=lambda idx=row: delete_input_field(idx))
+
+    # --- Plus-Button löschen, falls vorhanden ---
     if plus_button:
         plus_button.destroy()
+        plus_button = None
 
-    if len(func_entries) < 5:
+    # --- Plus-Button unter dem letzten Feld platzieren ---
+    if len(func_entries) < logic_gui.max_funcs:
         plus_button = ttk.Button(
             input_frame,
             text="+",
             width=3,
-            command=add_input_field
+            command=add_input_field,
+            style="AktionButton.TButton"
         )
         plus_button.grid(row=len(func_entries), column=0, columnspan=2, pady=10)
 
-    logic_gui.plot_functions(canvas, ax)
+    # --- Alle Funktionen aus dem Koordinatensystem löschen und neu plotten ---
+    try:
+        logic_gui.plot_functions(canvas, ax)
+    except Exception as e:
+        print(f"Fehler beim Neuzeichnen der Funktionen: {e}")
+
+
 
 def on_focus_in(index):
     """Zeigt das Interpretationsfeld beim Fokus."""
@@ -176,8 +280,28 @@ def on_focus_in(index):
     update_interpretation(index)
 
 def on_focus_out(index):
-    """Versteckt das Interpretationsfeld beim Verlassen."""
+    """Ersetzt Entry-Text durch interpretierte Darstellung beim Verlassen."""
+
+    # Interpretationslabel ausblenden
     interpreted_labels[index].grid_remove()
+
+    # Aktuellen Text holen
+    text = func_entries[index].get().strip()
+
+    if not text:
+        return
+
+    try:
+        interpreted_text = interpreted(text)
+
+        func_entries[index].delete(0, tk.END)
+        func_entries[index].insert(0, interpreted_text)
+
+    except Exception as e:
+        interpreted_labels[index].config(
+            text=f"Fehler: {e}",
+            foreground="red"
+        )
 
 def update_interpretation(index):
     """Aktualisiert das Interpretationsfeld."""
@@ -195,69 +319,24 @@ def on_entry_change(event, index):
         return
 
     text = func_entries[index].get().strip()
-    func_name = ['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)'][index]   
+    func_name = logic_gui.func_names[index]   
 
     if text:
         try:
             logic_gui.func_dict[func_name] = [text]
             update_interpretation(index)
             error = logic_gui.plot_functions(canvas, ax)
-            if error:
+            if error != True:
                 error_label.config(text=error, foreground="red")
             else:
                 error_label.config(text="")
-        except Exception as e:
+        except Exception as e:  
             interpreted_labels[index].config(
                 text=f"Fehler: {e}",
                 foreground="red"
             )
     else:
         interpreted_labels[index].config(text="Interpretiert als: ", foreground="gray")
-
-# --- UI-Setup ---
-style = ttk.Style()
-style.configure('TButton', font=font_style)
-style.configure('TEntry', fieldbackground='white')
-
-# Hauptframe für Eingabefelder und Koordinatensystem
-main_frame = ttk.Frame(root)
-main_frame.pack(fill='both', expand=True)
-
-# Frame für Eingabefelder (links)
-input_frame = ttk.Frame(main_frame, width=int(screen_width*0.8*1/3))
-input_frame.pack(side='left', fill='y', padx=5, pady=10)
-input_frame.pack_propagate(False)
-
-# Frame für Koordinatensystem (mittig)
-plot_frame = ttk.Frame(main_frame)
-plot_frame.pack(side='left', fill='both', expand=True, padx=5, pady=5)
-
-# Frame für Buttons (rechts)
-button_frame = ttk.Frame(main_frame, width=int(screen_width*0.8*1/5))
-button_frame.pack(side='right', fill='y', padx=5, pady=10)
-button_frame.pack_propagate(False)
-
-# Koordinatensystem
-fig = Figure(figsize=(6, 4.5))
-ax = fig.add_subplot(111)
-canvas = FigureCanvasTkAgg(fig, master=plot_frame)
-canvas.get_tk_widget().pack(fill='both', expand=True)
-
-# Fehlerlabel
-error_label = ttk.Label(root, text="", foreground="red", font=font_style)
-error_label.pack(pady=5)
-
-# Toolbar mit Einstellungen-Button (nach oben verschoben)
-toolbar_frame = ttk.Frame(root)
-toolbar_frame.pack(side="top", fill="x", pady=(5, 0))
-
-settings_button = ttk.Button(
-    root,
-    text="Einstellungen",
-    command=open_settings,
-    style='TButton'
-)
-settings_button.place(relx=0.99, rely=0.95, anchor='se') 
 
 def open_ableitung_popup():
     """Öffnet ein Popup-Fenster zur Auswahl der abzuleitenden Funktion."""
@@ -278,29 +357,31 @@ def open_ableitung_popup():
 
     # Durchlaufe die in logic_gui.func_dict gespeicherten Funktionen
     func_list = []
-    for i, func_name in enumerate(['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)']):
+    for i, func_name in enumerate(logic_gui.func_names):
         if func_name in logic_gui.func_dict:
             func_str = logic_gui.func_dict[func_name][0]  # Erste Funktion in der Liste
             func_list.append((func_name, func_str))
 
     if not func_list:
-        tk.Label(frame, text="Keine Funktionen definiert.", font=font_style).pack(pady=10)
+        tk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
         return
 
     # Buttons für jede Funktion erstellen
     for func_name, func_str in func_list:
-        idx = ['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)'].index(func_name)
+        idx = logic_gui.func_names.index(func_name)
         base_color = logic_gui.colors[idx]
-        lighter_color_value = lighter_color(base_color)  # Hellere Farbe berechnen
 
         btn = tk.Button(
             frame,
             text=f"{func_name} = {interpreted(func_str)}",
             command=lambda name=func_name, s=func_str: plot_ableitung(name, s),
-            bg=lighter_color_value,  # Hellere Farbe verwenden
-            fg="black",  # Textfarbe auf Schwarz setzen für bessere Lesbarkeit
+            bg=base_color,
+            fg="white",
+            font=text,
             width=30,
-            height=2
+            height=2,
+            relief="raised",
+            bd=2
         )
         btn.pack(pady=5)
 
@@ -357,29 +438,31 @@ def open_integration_popup():
 
     # Durchlaufe die in logic_gui.func_dict gespeicherten Funktionen
     func_list = []
-    for i, func_name in enumerate(['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)']):
+    for i, func_name in enumerate(logic_gui.func_names):
         if func_name in logic_gui.func_dict:
             func_str = logic_gui.func_dict[func_name][0]  
             func_list.append((func_name, func_str))
 
     if not func_list:
-        tk.Label(frame, text="Keine Funktionen definiert.", font=font_style).pack(pady=10)
+        ttk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
         return
 
     # Buttons für jede Funktion erstellen
     for func_name, func_str in func_list:
-        idx = ['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)'].index(func_name)
+        idx = logic_gui.func_names.index(func_name)
         base_color = logic_gui.colors[idx]
-        darker_color_value = darker_color(base_color)  # Dunklere Farbe berechnen
 
         btn = tk.Button(
             frame,
             text=f"{func_name} = {interpreted(func_str)}",
             command=lambda name=func_name, s=func_str: select_integration_range(name, s),
-            bg=darker_color_value,
+            bg=base_color,
             fg="white",
+            font=text,
             width=30,
-            height=2
+            height=2,
+            relief="raised",
+            bd=2
         )
         btn.pack(pady=5)
 
@@ -445,49 +528,11 @@ def plot_integration(func_name, func_str, a, b):
         canvas.get_tk_widget().pack()
 
         # Fläche anzeigen
-        tk.Label(plot_window, text=f"Fläche: {area:.2f}").pack(pady=10)
+        ttk.Label(plot_window, text=f"Fläche: {area:.2f}").pack(pady=10)
 
     except Exception as e:
         messagebox.showerror("Fehler", f"Fehler beim Plotten: {e}")
 
-
-# Buttons für Filter, Ableitung, Integration (untereinander)
-filter_button = ttk.Button(
-    button_frame,
-    text="Filter",
-    style='TButton'
-)
-filter_button.pack(fill='x', pady=10)
-
-ableitung_button = ttk.Button(
-    button_frame,
-    text="Ableitung",
-    command=open_ableitung_popup,
-    style='TButton'
-)
-ableitung_button.pack(fill='x', pady=10)
-
-integration_button = ttk.Button(
-    button_frame,
-    text="Integration",
-    command=open_integration_popup,
-    style='TButton'
-)
-integration_button.pack(fill='x', pady=10)
-
-ft_button = ttk.Button(
-    button_frame,
-    text="Fouriertransformierte",
-    style='TButton'
-)
-ft_button.pack(fill='x', pady=10)
-
-rft_button = ttk.Button(
-    button_frame,
-    text="Rücktransformierte",
-    style='TButton'
-)
-rft_button.pack(fill='x', pady=10)
 
 def open_legend():
     legend_popup = Toplevel(root)
@@ -497,50 +542,96 @@ def open_legend():
     frame = Frame(legend_popup)
     frame.pack(padx=10, pady=10, fill='both', expand=True)
 
-    tk.Label(frame, text="Standardoperationen:", font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+    ttk.Label(frame, text="Standardoperationen:", font=(schriftart, 11, 'bold')).pack(anchor='w')
 
-    tk.Label(frame, text="x^2      →   x²", font=font_style).pack(anchor='w')
-    tk.Label(frame, text="x^(10)   →   x¹⁰", font=font_style).pack(anchor='w')
-    tk.Label(frame, text="x^(-5)   →   x⁻⁵", font=font_style).pack(anchor='w')
-    tk.Label(frame, text="x^(2x)   →   x²ˣ", font=font_style).pack(anchor='w')
+    ttk.Label(frame, text="x^2      →   x²", font=text).pack(anchor='w')
+    ttk.Label(frame, text="x^(10)   →   x¹⁰", font=text).pack(anchor='w')
+    ttk.Label(frame, text="x^(-5)   →   x⁻⁵", font=text).pack(anchor='w')
+    ttk.Label(frame, text="x^(2x)   →   x²ˣ", font=text).pack(anchor='w')
 
     row_frame = Frame(frame)
     row_frame.pack(anchor='w', padx=0)
 
-    tk.Label(row_frame, text="x^(1/x)  →", font=font_style).pack(side="left")
+    ttk.Label(row_frame, text="x^(1/x)  →", font=text).pack(side="left")
 
     frac_frame = Frame(row_frame)
     frac_frame.pack(side="left")
 
-    small_font = ('Segoe UI', 9)
+    small_font = (schriftart, 9)
 
-    tk.Label(frac_frame, text="  1", font=small_font).pack()
-    tk.Label(frac_frame, text="  ─", font=small_font).pack()
-    tk.Label(frac_frame, text="  x", font=small_font).pack()
+    ttk.Label(frac_frame, text="  1", font=small_font).pack()
+    ttk.Label(frac_frame, text="  ─", font=small_font).pack()
+    ttk.Label(frac_frame, text="  x", font=small_font).pack()
 
-    tk.Label(frame, text="", font=font_style).pack()
+    tk.Label(frame, text="", font=text).pack()
 
-    tk.Label(frame, text="Spezielle Funktionen:", font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+    ttk.Label(frame, text="Spezielle Funktionen:", font=(schriftart, 11, 'bold')).pack(anchor='w')
     for name, expr in comp_input.spec_funcs.items():
-        tk.Label(frame, text=f"{name} → {expr}", font=font_style).pack(anchor='w')
+        tk.Label(frame, text=f"{name} → {expr}", font=text).pack(anchor='w')
 
-    tk.Label(frame, text="", font=font_style).pack()
+    tk.Label(frame, text="", font=text).pack()
 
-    tk.Label(frame, text="Verfügbare Konstanten:", font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+    tk.Label(frame, text="Verfügbare Konstanten:", font=(schriftart, 11, 'bold')).pack(anchor='w')
     for name, expr in comp_input.spec_cons.items():
-        tk.Label(frame, text=f"{name} → {expr}", font=font_style).pack(anchor='w')
+        tk.Label(frame, text=f"{name} → {expr}", font=text).pack(anchor='w')
 
     tk.Button(frame, text="Schließen", command=legend_popup.destroy).pack(pady=10)
 
+
+# Buttons für Filter, Ableitung, Integration (untereinander)
+filter_button = ttk.Button(
+    button_frame,
+    text="Filter",
+    style="TextButton.TButton"
+)
+filter_button.pack(fill='x', pady=10)
+
+ableitung_button = ttk.Button(
+    button_frame,
+    text="Ableitung",
+    command=open_ableitung_popup,
+    style="TextButton.TButton"
+)
+ableitung_button.pack(fill='x', pady=10)
+
+integration_button = ttk.Button(
+    button_frame,
+    text="Integration",
+    command=open_integration_popup,
+    style="TextButton.TButton"
+)
+integration_button.pack(fill='x', pady=10)
+
+ft_button = ttk.Button(
+    button_frame,
+    text="Fouriertransformierte",
+    style="TextButton.TButton"
+)
+ft_button.pack(fill='x', pady=10)
+
+rft_button = ttk.Button(
+    button_frame,
+    text="Rücktransformierte",
+    style="TextButton.TButton"
+)
+rft_button.pack(fill='x', pady=10)
 
 # --- Legende-Button unten links --- 
 legend_button = ttk.Button(
     root,
     text="Legende",
     command=open_legend,
-    style='TButton'
+    style="TextButton.TButton"
 )
 legend_button.place(relx=0.01, rely=0.95, anchor='sw')
+
+settings_button = ttk.Button(
+    root,
+    text="Einstellungen",
+    command=open_settings,
+    style="TextButton.TButton"
+)
+settings_button.place(relx=0.99, rely=0.95, anchor='se') 
 
 
 # Event-Bindings für Zoomen/Panning

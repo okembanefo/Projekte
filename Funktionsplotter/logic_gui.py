@@ -1,6 +1,5 @@
 import numpy as np
 import re
-import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import matplotlib.colors as mc
@@ -10,11 +9,15 @@ from comp_input import parser
 from comp_input import interpreted
 from plot_logic import gen_funcs
 
+#Funktionendef.
+max_funcs = 7
+func_names = ['f(x)', 'g(x)', 'h(x)', 'j(x)', 'k(x)', 'l(x)', 'n(x)', 'm(x)', 'r(x)', 't(x)']
+
 # Globale Variablen für die Logik
-colors = ["green", "blue", "red", "yellow", "purple"]
-x_range = [-10, 10]
-y_range = [-10, 10]
-count_points = 1000
+colors = ["springgreen", "skyblue", "magenta", "coral", "indigo", "moccasin", "turquoise", "mistyrose"]
+x_range_kord = [-10, 10]
+y_range_kord = [-10, 10]
+count_points = 50000
 axis_in_radians = False
 show_positive_only = False
 is_panning = False
@@ -24,47 +27,29 @@ pan_x_range = [0, 0]
 pan_y_range = [0, 0]
 func_dict = {}
 
-x_ax_min = -15
-x_ax_max = 15
-y_ax_min = -15
-y_ax_max = 15
+x_ax_min = -1000
+x_ax_max = 1000
+y_ax_min = -1000
+y_ax_max = 1000
 
-pan_sen = 0.3  
+pan_sen = 0.3
 pan_state = {
     "press": None,
     "xlim": None,
     "ylim": None
 }
 
-# Fehlerverwaltung
-input_errors = defaultdict(lambda: {"timestamp": 0, "count": 0})
-
-def handle_input_errors(error_message):
-    current_time = time.time()
-
-    if error_message in input_errors:
-        if current_time - input_errors[error_message]["timestamp"] < 3:
-            input_errors[error_message]["count"] += 1
-            return None
-        else:
-            input_errors[error_message]["count"] += 1
-            return error_message
-    else:
-        input_errors[error_message]["timestamp"] = current_time
-        input_errors[error_message]["count"] = 1
-        return None
-
 def auto_adjust_axis(x, y):
-    global x_range, y_range
+    global x_range_kord, y_range_kord
     x_min, x_max = min(x), max(x)
     y_min, y_max = min(y), max(y)
     x_pad = (x_max - x_min) * 0.1
     y_pad = (y_max - y_min) * 0.1
-    x_range = [x_min - x_pad, x_max + x_pad]
+    x_range_kord = [x_min - x_pad, x_max + x_pad]
     if show_positive_only:
-        y_range = [0, y_max + y_pad]
+        y_range_kord = [0, y_max + y_pad]
     else:
-        y_range = [y_min - y_pad, y_max + y_pad]
+        y_range_kord = [y_min - y_pad, y_max + y_pad]
 
 def on_press(event, ax, canvas):
     if event.inaxes != ax or event.button != 1:
@@ -73,7 +58,6 @@ def on_press(event, ax, canvas):
     pan_state["press"] = (event.x, event.y)
     pan_state["xlim"] = ax.get_xlim()
     pan_state["ylim"] = ax.get_ylim()
-
 
 def on_motion(event, ax, canvas):
     if pan_state["press"] is None or event.inaxes != ax:
@@ -102,9 +86,8 @@ def on_motion(event, ax, canvas):
 def on_release(event):
     pan_state["press"] = None
 
-
 def on_scroll(event, ax, canvas):
-    global x_range, y_range
+    global x_range_kord, y_range_kord
 
     if event.inaxes != ax:
         return
@@ -130,18 +113,18 @@ def on_scroll(event, ax, canvas):
     relx = (cur_xlim[1] - xdata) / (cur_xlim[1] - cur_xlim[0])
     rely = (cur_ylim[1] - ydata) / (cur_ylim[1] - cur_ylim[0])
 
-    x_range = [
+    x_range_kord = [
         xdata - new_width * (1 - relx),
         xdata + new_width * relx
     ]
 
-    y_range = [
+    y_range_kord = [
         ydata - new_height * (1 - rely),
         ydata + new_height * rely
     ]
 
-    ax.set_xlim(x_range)
-    ax.set_ylim(y_range)
+    ax.set_xlim(x_range_kord)
+    ax.set_ylim(y_range_kord)
     canvas.draw_idle()
 
 def lighter_color(color):
@@ -154,26 +137,22 @@ def darker_color(color):
     hls = colorsys.rgb_to_hls(*rgb)
     return mc.to_hex(colorsys.hls_to_rgb(hls[0], 0.5 * hls[1], hls[2]))
 
-
 def plot_functions(canvas, ax, error_label=None):
-
     ax.clear()
 
-    initial_x_range = list(x_range)
-    initial_y_range = list(y_range)
+    print(func_dict)
 
-    for i, func_name in enumerate(['f(x)', 'g(x)', 'h(x)', 'i(x)', 'j(x)']):
+    initial_x_range = list(x_range_kord)
+    initial_y_range = list(y_range_kord)
 
+    for i, func_name in enumerate(func_names):
         if func_name not in func_dict:
             continue
 
         func_list = func_dict[func_name]
-
         base_color = colors[i]
-        deriv_color = lighter_color(base_color)
 
         for j, func_str in enumerate(func_list):
-
             try:
                 parsed_expr = parser(func_str)
 
@@ -185,7 +164,6 @@ def plot_functions(canvas, ax, error_label=None):
                     count=count_points
                 )
 
-                # Originalfunktion
                 if j == 0:
                     ax.plot(
                         x,
@@ -193,41 +171,26 @@ def plot_functions(canvas, ax, error_label=None):
                         color=base_color,
                         label=f"{func_name} = {interpreted(func_str)}"
                     )
-
-                # Ableitung(en)
                 else:
                     label = f"{func_name.split('(')[0]}'(x) = {interpreted(func_str)}"
                     ax.plot(
                         x,
                         y,
-                        color=deriv_color,
+                        color=base_color,
                         linestyle="--",
                         label=label
                     )
 
             except ZeroDivisionError:
                 continue
-
             except Exception as e:
-                error_message = f"Fehler bei Funktion {func_name}: {str(e)}"
-                return handle_input_errors(error_message)
+                return f"Fehler: {str(e)}"
 
-    # Achsen beibehalten
     ax.set_xlim(initial_x_range)
     ax.set_ylim(initial_y_range)
 
-    # Ticks
-    x_ticks = np.arange(int(x_ax_min), int(x_ax_max) + 1, 1)
-    y_ticks = np.arange(int(y_ax_min), int(y_ax_max) + 1, 1)
-
-    ax.set_xticks(x_ticks)
-    ax.set_yticks(y_ticks)
-
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-
     ax.grid(True, which="both", linestyle='-')
-    ax.legend()
+    ax.legend(fontsize=12)
 
     canvas.draw()
 

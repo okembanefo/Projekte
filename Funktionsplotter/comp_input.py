@@ -28,16 +28,16 @@ spec_funcs = {
 spec_cons = {
     "pi": "np.pi",
     "e": "np.e",
-    "euler": "np.e",
     "tau": "(2*np.pi)"
 }
 
-superscript_map = {
+subs_map = {
     "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
     "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
-    "-": "⁻", ".": "·", "(": "⁽", ")": "⁾"  
+    "-": "⁻", "+": "⁺", ".": "·",
+    "x": "ˣ", "y": "ʸ", "n": "ⁿ",
+    "(": "⁽", ")": "⁾"
 }
-
 
 def simplify_funcs(expr: str) -> str:
 
@@ -155,61 +155,49 @@ def parser(expr: str) -> str:
 def interpreted(expr: str) -> str:
     expr = expr.strip().replace(" ", "")
 
-    # 1. e^... durch e^... (Basisformat) ersetzen
-    def exp_replace(match):
-        inner = match.group(1).replace("*", "")
-        return f"e^{inner}"
+    # Nur direkte Benutzereingabe: pi → π, tau → τ
+    expr = expr.replace("pi", "π").replace("tau", "τ")
 
-    expr = re.sub(r"e\^\((.*?)\)", exp_replace, expr)
-    expr = re.sub(r"e\^([0-9x\.\-]+)", exp_replace, expr)
-    expr = re.sub(r"np\.exp\((.*?)\)", exp_replace, expr)
+    def to_power(text):
+        if not text:
+            return ""
+        text = re.sub(r"sqrt\((.*?)\)", lambda m: sqrt_replace(m.group(1)), text)
+        return "".join(subs_map.get(ch, ch) for ch in text)
 
-    # 2. Spezielle Funktionen
-    funcs = sorted(spec_funcs.keys(), key=len, reverse=True)
-    for f in funcs:
-        expr = re.sub(rf"\b{f}\b(?=\s*\()", rf"{f}", expr)
+    def sqrt_replace(inner):
+        inner = inner.replace("*", "")
+        if len(inner) == 1:
+            return f"√{inner}"
+        return f"√({inner})"
 
-    # 3. Hoch 1 entfernen
-    expr = re.sub(r"([a-zA-Z0-9\)])\^1\b", r"\1", expr)
-    expr = re.sub(r"([a-zA-Z0-9\)])\*\*1\b", r"\1", expr)
+    def replace_exp(match):
+        inner = match.group(1)
+        inner_processed = to_power(inner)
+        if len(inner_processed) > 1:
+            return f"e⁽{inner_processed}⁾"
+        return f"e{inner_processed}"
 
-    # 4. Exponenten zusammenfassen
-    expr = expr.replace("^", "**")
-    expr = combine_exponents(expr)
+    # exp(...) und e^(...) in Hochzahlen umwandeln
+    expr = re.sub(r"exp\((.*?)\)", replace_exp, expr)
+    expr = re.sub(r"e\^\((.*?)\)", replace_exp, expr)
+    expr = re.sub(r"e\^([0-9a-zA-Zπ√\+\-\.\(\)]+)", replace_exp, expr)
 
-    # 5. Superscript-Formatierung inkl. negative & Fließkomma-Exponenten
-    def sup_replace(match):
-        base, power = match.groups()
-        power = power.strip("()")
+    # Wurzeln direkt ersetzen
+    expr = re.sub(r"sqrt\((.*?)\)", lambda m: sqrt_replace(m.group(1)), expr)
 
-        # Zahl in float parsen, prüfen ob int
-        try:
-            num = float(power)
-            if num.is_integer():  # ganze Zahl → ohne Dezimalpunkt
-                power = str(int(num))
-            else:
-                power = str(num)   # Dezimalzahl bleibt mit Punkt
-        except ValueError:
-            pass  # z.B. x oder andere Variable bleibt unverändert
-
-        sup = "".join(superscript_map.get(ch, ch) for ch in power)
-        return f"{base}{sup}"
-
-    expr = re.sub(
-        r"([a-zA-Z0-9\)])\*\*(\-?\d+(?:\.\d+)?|\-?x|\(\-?\d+(?:\.\d+)?\))",
-        sup_replace,
-        expr
-    )
-    expr = re.sub(
-        r"([a-zA-Z0-9\)])\^(\-?\d+(?:\.\d+)?|\-?x|\(\-?\d+(?:\.\d+)?\))",
-        sup_replace,
-        expr
-    )
-
-    # 6. Multiplikationszeichen entfernen
+    # Multiplikationszeichen entfernen
     expr = re.sub(r"(\d+)\*([a-zA-Z\(])", lambda m: m.group(1) + m.group(2), expr)
 
-    # 7. Konstanten
-    expr = expr.replace("np.pi", "π").replace("np.e", "e").replace("(2*np.pi)", "τ")
+    # Hochzahlen (**) oder ^
+    expr = re.sub(
+        r"([a-zA-Z0-9\)])\*\*(\-?[0-9a-zA-Z\+\-π√\.\(\)]+)",
+        lambda m: f"{m.group(1)}{to_power(m.group(2))}",
+        expr
+    )
+    expr = re.sub(
+        r"([a-zA-Z0-9\)])\^(\-?[0-9a-zA-Z\+\-π√\.\(\)]+)",
+        lambda m: f"{m.group(1)}{to_power(m.group(2))}",
+        expr
+    )
 
     return expr

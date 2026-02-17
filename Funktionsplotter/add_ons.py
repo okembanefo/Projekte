@@ -4,7 +4,7 @@ from comp_input import combine_exponents
 from comp_input import simplify_funcs
 
 abl_map = {
-    "sinc(x)": "(np.pi*x*np.cos(np.pi*x)-sin(np.pi*x))/(np.pi*x^2)",
+    "sinc(x)": "(pi*x*cos(pi*x)-sin(pi*x))/(pi*x^2)",
     "sin(x)": "cos(x)",
     "cos(x)": "-sin(x)",
     "tan(x)": "1/cos(x)**2",
@@ -17,18 +17,50 @@ abl_map = {
 
 def simplify_funcs(expr: str) -> str:
     expr = expr.strip()
-    expr = re.sub(r"([+-]?\d*\.?\d*)?\*?sqrt\((x)\)", lambda m: (m.group(1) or "") + "x^(1/2)", expr)
-    funcs = ["sin", "cos", "tan", "exp", "ln", "log"]
-    for f in funcs:
-        pattern = rf"([+-]?\d*\.?\d*)?\*?{f}\((x)\)"
-        expr = re.sub(pattern, lambda m, func=f: (m.group(1) or "") + f"{func}(x)", expr)
+
+    def sqrt_replace(match):
+        factor = match.group(1) or ""  # Vorfaktor: 3*, -, + oder leer
+        inner = match.group(2)         # Inhalt der sqrt
+        factor = factor.rstrip("*")    # Entferne ggf. * am Ende
+        if factor in ("", "+"):
+            return f"({inner})^(1/2)"
+        elif factor == "-":
+            return f"-({inner})^(1/2)"
+        else:
+            return f"{factor}*({inner})^(1/2)"
+
+    # Suche nach optionalem Vorfaktor und sqrt
+    expr = re.sub(r"([+-]?\d*\*?)?sqrt\((.*?)\)", sqrt_replace, expr)
+
+    # --- trigonometrische Funktionen unverändert lassen ---
+    trig_funcs = ["sin", "cos", "tan", "exp", "ln", "log"]
+    for f in trig_funcs:
+        pattern = rf"([+-]?\d*\.?\d*)\*?{f}\((.*?)\)"
+        def func_replace(match, func=f):
+            coeff = match.group(1)
+            inner = match.group(2)
+            if coeff in ("", "+", None):
+                coeff = ""
+            elif coeff == "-":
+                coeff = "-"
+            return f"{coeff}{func}({inner})"
+        expr = re.sub(pattern, func_replace, expr)
+
     return expr
 
-def format_number(n):
-    return str(int(n)) if isinstance(n, float) and n.is_integer() else str(n)
+def format_number(num):
+    if num.is_integer():
+        return str(int(num))
+    return str(num)
+
+def integration(func, a, b, steps=1000):
+    x = np.linspace(a, b, steps)
+    y = func(x)
+    return np.trapz(y, x)
 
 def ableitung(expr: str) -> str:
     expr = expr.replace(" ", "")
+    expr = simplify_funcs(expr)
     terms = re.split(r'(?=[+-])', expr)
     result_terms = []
 
@@ -36,86 +68,52 @@ def ableitung(expr: str) -> str:
         if term == "":
             continue
 
-        sinc_match = re.match(r'([+-]?\d*\.?\d*)?\*?sinc\((\d*\.?\d*)x\)', term)
-        if sinc_match:
-            coeff_str, inner_coeff_str = sinc_match.groups()
-            coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (-1.0 if coeff_str == "-" else 1.0)
-            inner_coeff = float(inner_coeff_str) if inner_coeff_str != "" else 1.0
-            new_coeff = coeff * inner_coeff
-
-            if new_coeff == 1:
-                result_terms.append(f"(np.cos(np.pi*{inner_coeff}x) - sinc({inner_coeff}x))/{inner_coeff}x")
-            elif new_coeff == -1:
-                result_terms.append(f"-(np.cos(np.pi*{inner_coeff}x) - sinc({inner_coeff}x))/{inner_coeff}x")
-            else:
-                sign = "-" if new_coeff < 0 else ""
-                coeff_out = format_number(abs(new_coeff))
-                result_terms.append(f"{sign}{coeff_out}*(np.cos(np.pi*{inner_coeff}x) - sinc({inner_coeff}x))/{inner_coeff}x")
-            continue
-            print(results_terms)
-
-        neg_power_match = re.match(r'([+-]?\d*\.?\d*)x\^\(?\s*(-\d+\.?\d*)\s*\)?$', term)
-        if neg_power_match:
-            coeff_str, power_str = neg_power_match.groups()
-            coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (-1.0 if coeff_str == "-" else 1.0)
-            power = float(power_str)
-            new_coeff = coeff * power
-            new_power = power - 1
-            coeff_out = "" if new_coeff == 1 else "-" if new_coeff == -1 else format_number(new_coeff)
-            if new_power == 1:
-                result_terms.append(f"{coeff_out}x")
-            elif new_power == 0:
-                result_terms.append(f"{coeff_out}")
-            else:
-                result_terms.append(f"{coeff_out}x^{format_number(new_power)}")
-            continue
-
-        # --- Fall 2: Positive Exponenten x^n oder x^(n) ---
-        power_match = re.match(r'([+-]?\d*\.?\d*)x\^\(?\s*([+]?\d+\.?\d*)\s*\)?$', term)
+        # --- Potenzen x^(n) (inkl. negative) ---
+        power_match = re.match(r'([+-]?\d*\.?\d*)\*?\(?(.+?)\)?\^([+-]?\d*\.?\d+)', term)
         if power_match:
-            coeff_str, power_str = power_match.groups()
+            coeff_str, base, power_str = power_match.groups()
             coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (-1.0 if coeff_str == "-" else 1.0)
             power = float(power_str)
             new_coeff = coeff * power
             new_power = power - 1
             coeff_out = "" if new_coeff == 1 else "-" if new_coeff == -1 else format_number(new_coeff)
             if new_power == 1:
-                result_terms.append(f"{coeff_out}x")
+                result_terms.append(f"{coeff_out}{base}")
             elif new_power == 0:
                 result_terms.append(f"{coeff_out}")
             else:
-                result_terms.append(f"{coeff_out}x^{format_number(new_power)}")
+                result_terms.append(f"{coeff_out}{base}^{format_number(new_power)}")
             continue
 
-        # --- lineare Terme kx ---
+        # --- lineare Terme k*x ---
         linear_match = re.match(r'([+-]?\d*\.?\d*)x$', term)
         if linear_match:
             coeff_str = linear_match.group(1)
             coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (-1.0 if coeff_str == "-" else 1.0)
-            if coeff == 1: result_terms.append("1")
-            elif coeff == -1: result_terms.append("-1")
-            else: result_terms.append(format_number(coeff))
+            result_terms.append(format_number(coeff))
+            continue
+
+        # --- trigonometrische Funktionen mit Kettenregel ---
+        trig_match = re.match(r'([+-]?\d*\.?\d*)?(sin|cos|tan)\((.+)\)', term)
+        if trig_match:
+            coeff_str, func, inner = trig_match.groups()
+            coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (-1.0 if coeff_str == "-" else 1.0)
+            inner_deriv = ableitung(inner)  # Kettenregel
+            base_deriv = abl_map[func]
+            # Vorfaktor multiplizieren
+            if inner_deriv == "1":
+                result_terms.append(f"{format_number(coeff)}{base_deriv}({inner})" if coeff != 1 else f"{base_deriv}({inner})")
+            else:
+                result_terms.append(f"{format_number(coeff)}*({inner_deriv})*{base_deriv}({inner})" if coeff != 1 else f"({inner_deriv})*{base_deriv}({inner})")
             continue
 
         # --- ln(kx) ---
-        ln_match = re.match(r'([+-]?\d*\.?\d*)?ln\((\d*)x\)', term)
+        ln_match = re.match(r'([+-]?\d*\.?\d*)?ln\((.+)\)', term)
         if ln_match:
-            coeff_str, inner_coeff_str = ln_match.groups()
+            coeff_str, inner = ln_match.groups()
             coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (-1.0 if coeff_str == "-" else 1.0)
-            inner_coeff = float(inner_coeff_str) if inner_coeff_str != "" else 1.0
-            new_coeff = coeff * inner_coeff
-            denom = "x" if inner_coeff == 1 else f"{format_number(inner_coeff)}x"
-            if new_coeff == 1:
-                result_terms.append(f"1/{denom}")
-            elif new_coeff == -1:
-                result_terms.append(f"-1/{denom}")
-            else:
-                sign = "-" if new_coeff < 0 else ""
-                coeff_out = format_number(abs(new_coeff))
-                if denom == "x":
-                    result_terms.append(f"{sign}{coeff_out}/x")
-                else:
-                    result_terms.append(f"{sign}{coeff_out}/({denom})")
+            inner_deriv = ableitung(inner)
+            result_terms.append(f"{format_number(coeff)}*({inner_deriv})/({inner})" if coeff != 1 else f"({inner_deriv})/({inner})")
             continue
 
         # --- exp(...) ---
@@ -124,46 +122,29 @@ def ableitung(expr: str) -> str:
             coeff_str, inner = exp_match.groups()
             coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (-1.0 if coeff_str == "-" else 1.0)
             inner_deriv = ableitung(inner)
-            if inner_deriv == "1": inner_part = ""
-            elif len(inner_deriv) > 1: inner_part = f"({inner_deriv})*"
-            else: inner_part = f"{inner_deriv}*"
-            if coeff == 1: coeff_out = ""
-            elif coeff == -1: coeff_out = "-"
-            else: coeff_out = format_number(coeff)
-            result_terms.append(f"{coeff_out}{inner_part}exp({inner})")
-            continue
-
-        # --- trig Funktionen ---
-        func_match = re.match(r'([+-]?\d*\.?\d*)?(sin|cos|tan)\((\d*)x\)', term)
-        if func_match:
-            coeff_str, func, inner_coeff_str = func_match.groups()
-            coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (-1.0 if coeff_str == "-" else 1.0)
-            inner_coeff = float(inner_coeff_str) if inner_coeff_str != "" else 1.0
-            new_coeff = coeff * inner_coeff
-            base_deriv = abl_map[f"{func}(x)"]
-            if base_deriv.startswith("-"):
-                base_deriv = base_deriv[1:]
-                new_coeff *= -1
-            if new_coeff == 1: coeff_out = ""
-            elif new_coeff == -1: coeff_out = "-"
-            else: coeff_out = format_number(new_coeff)
-            result_terms.append(f"{coeff_out}{base_deriv}")
+            if inner_deriv == "1":
+                inner_part = ""
+            else:
+                inner_part = f"({inner_deriv})*"
+            result_terms.append(f"{format_number(coeff)}*{inner_part}exp({inner})" if coeff != 1 else f"{inner_part}exp({inner})")
             continue
 
         # --- x einzeln ---
-        if term in ("x", "+x"): result_terms.append("1"); continue
-        if term == "-x": result_terms.append("-1"); continue
+        if term in ("x", "+x"):
+            result_terms.append("1")
+            continue
+        if term == "-x":
+            result_terms.append("-1")
+            continue
 
-        # --- konstante ---
-        if re.fullmatch(r'[+-]?\d+\.?\d*', term): result_terms.append("0"); continue
+        # --- Konstanten ---
+        if re.fullmatch(r'[+-]?\d+\.?\d*', term):
+            result_terms.append("0")
+            continue
 
+        # fallback
         result_terms.append(term)
 
     result = "+".join(result_terms)
     result = result.replace("+-", "-").replace("--", "+").replace("+ -", "-")
     return result
-
-def integration(func, a, b, steps=1000):
-    x = np.linspace(a, b, steps)
-    y = func(x)
-    return np.trapz(y, x)
