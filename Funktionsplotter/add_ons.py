@@ -36,6 +36,24 @@ def ableitung(expr: str) -> str:
         if term == "":
             continue
 
+        sinc_match = re.match(r'([+-]?\d*\.?\d*)?\*?sinc\((\d*\.?\d*)x\)', term)
+        if sinc_match:
+            coeff_str, inner_coeff_str = sinc_match.groups()
+            coeff = float(coeff_str) if coeff_str not in ("", "+", "-") else (-1.0 if coeff_str == "-" else 1.0)
+            inner_coeff = float(inner_coeff_str) if inner_coeff_str != "" else 1.0
+            new_coeff = coeff * inner_coeff
+
+            if new_coeff == 1:
+                result_terms.append(f"(np.cos(np.pi*{inner_coeff}x) - sinc({inner_coeff}x))/{inner_coeff}x")
+            elif new_coeff == -1:
+                result_terms.append(f"-(np.cos(np.pi*{inner_coeff}x) - sinc({inner_coeff}x))/{inner_coeff}x")
+            else:
+                sign = "-" if new_coeff < 0 else ""
+                coeff_out = format_number(abs(new_coeff))
+                result_terms.append(f"{sign}{coeff_out}*(np.cos(np.pi*{inner_coeff}x) - sinc({inner_coeff}x))/{inner_coeff}x")
+            continue
+            print(results_terms)
+
         neg_power_match = re.match(r'([+-]?\d*\.?\d*)x\^\(?\s*(-\d+\.?\d*)\s*\)?$', term)
         if neg_power_match:
             coeff_str, power_str = neg_power_match.groups()
