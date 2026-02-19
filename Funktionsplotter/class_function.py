@@ -1,6 +1,7 @@
 import numpy as np
 from comp_input import parser, interpreted, handle_error
 
+
 max_funcs = 10
 func_names = [
     'f(x)', 'g(x)', 'h(x)', 'j(x)', 'k(x)',
@@ -17,7 +18,7 @@ entry_widgets = {}
 
 x_range_kord = [-10, 10]
 y_range_kord = [-10, 10]
-count_points = 100000
+count_points = 50000
 axis_in_radians = False
 show_positive_only = False
 is_panning = False
