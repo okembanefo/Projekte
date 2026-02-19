@@ -1,5 +1,7 @@
 import re
 import numpy as np
+import ast
+from typing import Optional
 
 def rect(x, T = 1.0):
     x = np.asarray(x)
@@ -9,27 +11,49 @@ def tri(x, T = 1.0):
     x = np.asarray(x)
     return np.where(np.abs(x) <= T, 1.0 - np.abs(x)/T, 0.0)
 
-spec_funcs = {
-    "sinc": "np.sinc",
-    "sin": "np.sin",
-    "cos": "np.cos",
-    "tan": "np.tan",
-    "exp": "np.exp",
-    "log": "np.log",
-    "sqrt": "np.sqrt",
-    "arcsin": "np.arcsin",
-    "arccos": "np.arccos",
-    "arctan": "np.arctan",
-    "ln": "np.log",
-    "rect": "rect",
-    "tri": "tri"
+
+allowed_funcs = {
+    "sin": np.sin,
+    "cos": np.cos,
+    "tan": np.tan,
+    "exp": np.exp,  
+    "log": np.log10, 
+    "ln": np.log,  
+    "sqrt": np.sqrt,
+    "cosh": np.cosh,
+    "sinh": np.sinh,
+    "arcsin": np.arcsin,
+    "arccos": np.arccos,
+    "arctan": np.arctan,
+    "sinc": np.sinc,
+    "rect": rect,
+    "tri": tri,
+    "abs": np.abs,
 }
 
-spec_cons = {
-    "pi": "np.pi",
-    "e": "np.e",
-    "tau": "(2*np.pi)"
+allowed_consts = {
+    "pi": np.pi,
+    "tau": 2 * np.pi,
 }
+
+numpy_modules = {
+    "sin": np.sin,
+    "cos": np.cos,
+    "tan": np.tan,
+    "exp": np.exp,
+    "log": np.log,
+    "ln": np.log,
+    "sqrt": np.sqrt,
+    "cosh": np.cosh,
+    "sinh": np.sinh,
+    "arcsin": np.arcsin,
+    "arccos": np.arccos,
+    "arctan": np.arctan,
+    "abs": np.abs,
+    "pi": np.pi,
+    "e": np.e,
+}
+
 
 subs_map = {
     "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
@@ -38,6 +62,112 @@ subs_map = {
     "x": "ˣ", "y": "ʸ", "n": "ⁿ",
     "(": "⁽", ")": "⁾"
 }
+
+class SafeEvaluator(ast.NodeVisitor):
+    def __init__(self, x):
+        self.x = x
+
+    def visit_Expression(self, node):
+        return self.visit(node.body)
+
+    def visit_Name(self, node):
+        if node.id == "x":
+            return self.x
+        if node.id in allowed_consts:
+            return allowed_consts[node.id]
+        raise ValueError(f"Unbekannte Variable: {node.id}")
+
+
+    def visit_Constant(self, node):
+        return node.value
+
+    def visit_BinOp(self, node):
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        if isinstance(node.op, ast.Add):
+            return left + right
+        if isinstance(node.op, ast.Sub):
+            return left - right
+        if isinstance(node.op, ast.Mult):
+            return left * right
+        if isinstance(node.op, ast.Div):
+            return left / right
+        if isinstance(node.op, ast.Pow):
+            return left ** right
+        raise ValueError("Operator nicht erlaubt")
+
+    def visit_UnaryOp(self, node):
+        operand = self.visit(node.operand)
+        if isinstance(node.op, ast.UAdd):
+            return +operand
+        if isinstance(node.op, ast.USub):
+            return -operand
+        raise ValueError("Unary Operator nicht erlaubt")
+
+    def visit_Call(self, node):
+        # Falls es sich um np.exp, np.sin, etc. handelt
+        if isinstance(node.func, ast.Attribute):
+            if isinstance(node.func.value, ast.Name) and node.func.value.id == "np":
+                fname = node.func.attr
+                if fname in allowed_funcs:
+                    func = allowed_funcs[fname]
+                    args = [self.visit(arg) for arg in node.args]
+                    return func(*args)
+                else:
+                    raise ValueError(f"Funktion nicht erlaubt: np.{fname}")
+            else:
+                raise ValueError(f"Unbekannte Funktion: {type(node.func).__name__}")
+        # Falls es sich um einfache Funktionen wie sin, cos, etc. handelt
+        elif isinstance(node.func, ast.Name):
+            fname = node.func.id
+            if fname in allowed_funcs:
+                func = allowed_funcs[fname]
+                args = [self.visit(arg) for arg in node.args]
+                return func(*args)
+            else:
+                raise ValueError(f"Funktion nicht erlaubt: {fname}")
+        else:
+            raise ValueError(f"Unbekannte Funktion: {type(node).__name__}")
+
+    def generic_visit(self, node):
+        raise ValueError(f"Nicht erlaubter Ausdruck: {type(node).__name__}")
+
+def eval_ast(expr, x):
+    try:
+        tree = ast.parse(expr, mode="eval")
+        evaluator = SafeEvaluator(x)
+        return evaluator.visit(tree)
+    except SyntaxError as e:
+        raise ValueError(f"Syntaxfehler: {e}")
+    except ValueError as e:
+        raise ValueError(f"Fehler bei der Auswertung: {e}")
+    except Exception as e:
+        raise ValueError(f"Unbekannter Fehler: {e}")
+
+
+def handle_error(expr: str, error: Exception, func_name: Optional[str] = None) -> str:
+
+    if func_name:
+        msg = f"Fehler in Funktion '{func_name}': {error}"
+    else:
+        msg = f"Fehler bei der Auswertung von '{expr}': {error}"
+
+    # npezifische Fehler analysieren
+    if isinstance(error, ValueError):
+        if "Unbekannte Variable" in str(error):
+            msg += f"\n  -> Unbekannte Variable im Ausdruck: {error}"
+        elif "Funktion nicht erlaubt" in str(error):
+            msg += f"\n  -> Funktion nicht in `allowed_funcs` definiert: {error}"
+        elif "Nicht erlaubter Ausdruck" in str(error):
+            msg += f"\n  -> AST-Knoten nicht unterstützt: {error}"
+        else:
+            msg += f"\n  -> Ungültiger Ausdruck: {error}"
+    elif isinstance(error, SyntaxError):
+        msg += f"\n  -> Syntaxfehler: {error}"
+    else:
+        msg += f"\n  -> Unbekannter Fehler: {error}"
+
+    return msg
 
 def simplify_funcs(expr: str) -> str:
     expr = expr.strip()
@@ -96,30 +226,20 @@ def combine_exponents(expr: str) -> str:
 def parser(expr: str) -> str:
     expr = expr.strip().replace(" ", "")
     expr = expr.replace(",", ".")
-    if re.search(r"(^|[^a-zA-Z])e\^", expr):
-        raise ValueError("Bitte verwende exp(x) statt e^x oder e^(...).")
-    expr = re.sub(r"\bexp\((.*?)\)", r"__EXP__(\1)", expr)
-    expr = re.sub(r"\^\(\s*-\s*([0-9a-zA-Z]+)\s*\)", r"**(-\1)", expr)
-    expr = re.sub(r"\^\-\s*([0-9a-zA-Z]+)", r"**(-\1)", expr)
-    expr = re.sub(r"(\d)(x)", r"\1*x", expr)
-    expr = re.sub(r"(\d)([a-zA-Z])", r"\1*\2", expr)
-    expr = re.sub(r"(x)([a-zA-Z])", r"\1*\2", expr)
-    expr = re.sub(r"(\d|x)\(", r"\1*(", expr)
-    expr = re.sub(r"\)(\d|x)", r")*\1", expr)
-    funcs = sorted(spec_funcs.keys(), key=len, reverse=True)
-    for f in funcs:
-        if f == "exp":
-            continue
-        expr = re.sub(rf"\b{f}\b\((.*?)\)", rf"{spec_funcs[f]}(\1)", expr)
-        expr = re.sub(rf"\b{f}\b([a-zA-Z0-9\.]+)", rf"{spec_funcs[f]}(\1)", expr)
-    expr = re.sub(r"(?<![a-zA-Z])pi(?![a-zA-Z])", "np.pi", expr)
-    expr = re.sub(r"(?<![a-zA-Z])tau(?![a-zA-Z])", "(2*np.pi)", expr)
-    expr = re.sub(r"(?<![a-zA-Z])euler(?![a-zA-Z])", "np.e", expr)
-    expr = re.sub(r"(?<![a-zA-Z])e(?![a-zA-Z])", "np.e", expr)
-    expr = re.sub(r"__EXP__\((.*?)\)", r"np.exp(\1)", expr)
+    expr = re.sub(r"\^(\-?\d+)", r"**\1", expr)
+    expr = re.sub(r"\^(\-?[a-zA-Z])", r"**\1", expr)
     expr = expr.replace("^", "**")
-    expr = combine_exponents(expr)
+    funcs = sorted(allowed_funcs.keys(), key=len, reverse=True)
+    for f in funcs:
+        expr = re.sub(rf"\b{f}\s*\(", f"np.{f}(", expr)
+    expr = re.sub(r"(?<![a-zA-Z0-9_\.])pi(?![a-zA-Z0-9_])", "np.pi", expr)
+    expr = re.sub(r"(?<![a-zA-Z0-9_\.])tau(?![a-zA-Z0-9_])", "(2*np.pi)", expr)
+    expr = re.sub(r"(\d)\s*\(", r"\1*(", expr)  # 2(x) → 2*(x)
+    expr = re.sub(r"(\d)([a-zA-Z])", r"\1*\2", expr)  # 2x → 2*x
+    expr = re.sub(r"\)\s*\(", r")*(", expr)  # (x)(y) → (x)*(y)
+    expr = re.sub(r"\)\s*([a-zA-Z])", r")*\1", expr)  # (x)y → (x)*y
     return expr
+
 
 def interpreted(expr: str) -> str:
     expr = expr.strip().replace(" ", "")

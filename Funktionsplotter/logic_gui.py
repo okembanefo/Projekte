@@ -5,10 +5,11 @@ from matplotlib.figure import Figure
 import matplotlib.colors as mc
 import colorsys
 from collections import deque, defaultdict
-from comp_input import parser
-from comp_input import interpreted
+from comp_input import eval_ast, handle_error, interpreted, parser
 from plot_logic import gen_funcs
 from class_function import functions, func_names, colors, x_range_kord, y_range_kord, count_points, axis_in_radians, show_positive_only, pan_sen, pan_state, x_ax_min, x_ax_max, y_ax_min, y_ax_max
+from comp_input import handle_error
+
 
 def auto_adjust_axis(x, y):
     global x_range_kord, y_range_kord
@@ -95,6 +96,7 @@ def plot_functions(canvas, ax, error_label=None):
     ax.clear()
     initial_x_range = list(x_range_kord)
     initial_y_range = list(y_range_kord)
+
     for i, func_name in enumerate(func_names):
         if func_name in functions:
             func = functions[func_name]
@@ -127,10 +129,17 @@ def plot_functions(canvas, ax, error_label=None):
                         linestyle="--",
                         label=f"{func.name.split('(')[0]}'(x) = {interpreted(func.derivative_raw)}"
                     )
-            except ZeroDivisionError:
+            except ValueError as e:
+                if error_label:
+                    error_label.config(text=str(e), foreground="red")
+                print(f"Fehler bei {func_name}: {e}")
                 continue
             except Exception as e:
-                return f"Fehler: {str(e)}"
+                if error_label:
+                    error_label.config(text=f"Unbekannter Fehler: {e}", foreground="red")
+                print(f"Unbekannter Fehler bei {func_name}: {e}")
+                continue
+
     ax.set_xlim(initial_x_range)
     ax.set_ylim(initial_y_range)
     ax.grid(True, which="both", linestyle='-')

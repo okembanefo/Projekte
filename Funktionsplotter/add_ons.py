@@ -3,81 +3,29 @@ import numpy as np
 from comp_input import combine_exponents, simplify_funcs
 from class_function import functions
 from logic_gui import plot_functions
+from sympy import symbols, sympify, diff
+from comp_input import parser, rect, tri, handle_error, allowed_funcs, allowed_consts
 
-
-abl_map = {
-    "sinc(x)": "(pi*x*cos(pi*x)-sin(pi*x))/(pi*x^2)",
-    "sin(x)": "cos(x)",
-    "cos(x)": "-sin(x)",
-    "tan(x)": "1/cos(x)**2",
-    "exp(x)": "exp(x)",
-    "log(x)": "1/x",
-    "ln(x)": "1/x",
-    "sqrt(x)": "1/2*x^(-1/2)",
-    "1/x": "-1/x**2"
-}
 
 def integration(func, a, b, steps=1000):
     x = np.linspace(a, b, steps)
     y = func(x)
     return np.trapz(y, x)
 
+x = symbols('x')
+
 def ableitung(expr: str) -> str:
-    expr = expr.replace(" ", "")
-    expr = simplify_funcs(expr)
-    expr = combine_exponents(expr)
+    expr = expr.replace("^", "**")
 
-    # Split into additive terms
-    terms = re.split(r'(?=[+-])', expr)
-    deriv_terms = []
+    expr = parser(expr)
 
-    for term in terms:
-        if term == "":
-            continue
-
-        # --- Potenzterm: c*x^n ---
-        m = re.match(r'([+-]?\d*\.?\d*)\*?x\^([+-]?\d+(\.\d+)?)', term)
-        if m:
-            c_str, n_str, _ = m.groups()
-            c = float(c_str) if c_str not in ("", "+", "-") else (-1.0 if c_str == "-" else 1.0)
-            n = float(n_str)
-            new_c = c * n
-            new_n = n - 1
-            coeff_out = "" if new_c == 1 else "-" if new_c == -1 else format_number(new_c)
-            if new_n == 1:
-                deriv_terms.append(f"{coeff_out}x")
-            elif new_n == 0:
-                deriv_terms.append(f"{coeff_out}")
-            else:
-                deriv_terms.append(f"{coeff_out}x^{format_number(new_n)}")
-            continue
-
-        # --- Lineare Terme: c*x ---
-        m = re.match(r'([+-]?\d*\.?\d*)x$', term)
-        if m:
-            c_str = m.group(1)
-            c = float(c_str) if c_str not in ("", "+", "-") else (-1.0 if c_str == "-" else 1.0)
-            deriv_terms.append(format_number(c))
-            continue
-
-        # --- Funktionen in allowed_funcs ---
-        for f in allowed_funcs:
-            if term.startswith(f):
-                inner = term[len(f):].strip("()")
-                inner_deriv = ableitung(inner)
-                base_deriv = allowed_funcs[f]
-                if inner_deriv == "1":
-                    deriv_terms.append(f"{base_deriv}({inner})")
-                else:
-                    deriv_terms.append(f"({inner_deriv})*{base_deriv}({inner})")
-                break
-        else:
-            # fallback
-            deriv_terms.append(term)
-
-    result = "+".join(deriv_terms)
-    result = result.replace("+-", "-").replace("-+", "-").replace("--", "+").replace("++", "+")
-    return result
+    print(expr)
+    
+    sym_expr = sympify(expr)
+    
+    deriv = diff(sym_expr, x)
+    
+    return str(deriv)
 
 def format_number(num):
     if num.is_integer():

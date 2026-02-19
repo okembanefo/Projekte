@@ -11,7 +11,9 @@ from comp_input import interpreted, parser
 from plot_logic import conv_to_func
 from logic_gui import plot_functions, lighter_color, darker_color
 import class_function
-from class_function import functions, func_names, colors, max_funcs
+from class_function import Funktion, functions, func_names, colors, max_funcs
+from comp_input import handle_error
+
 
 root = tk.Tk()
 root.title("Funktionsplotter")
@@ -242,6 +244,13 @@ def update_interpretation(index):
     else:
         interpreted_labels[index].config(text="Interpretiert als: ")
 
+def is_valid_expression(expr):
+    try:
+        parser(expr)
+        return True
+    except Exception as e:
+        return False
+
 def on_entry_change(event, index):
     if index >= len(func_entries):
         return
@@ -249,26 +258,37 @@ def on_entry_change(event, index):
     func_name = func_names[index]
     if text:
         try:
-            if func_name not in functions:
-                functions[func_name] = class_function.Funktion(func_name, text)
+            if is_valid_expression(text):
+                if func_name in functions and text == functions[func_name].raw_expr:
+                    return
+                if func_name not in functions:
+                    functions[func_name] = Funktion(func_name, text)
+                else:
+                    functions[func_name].update(text)
+                update_interpretation(index)
+                error = plot_functions(canvas, ax, error_label)
+                if error != True:
+                    error_label.config(text=error, foreground="red")
+                else:
+                    error_label.config(text="")
             else:
-                functions[func_name].update(text)
-            update_interpretation(index)
-            error = logic_gui.plot_functions(canvas, ax)
-            if error != True:
-                error_label.config(text=error, foreground="red")
-            else:
-                error_label.config(text="")
+                interpreted_labels[index].config(
+                    text="Fehler: Ungültiger Ausdruck",
+                    foreground="red"
+                )
         except Exception as e:
             interpreted_labels[index].config(
                 text=f"Fehler: {e}",
                 foreground="red"
             )
+            error_label.config(text=f"Fehler: {e}", foreground="red")
     else:
         interpreted_labels[index].config(
             text="Interpretiert als: ",
             foreground="gray"
         )
+
+
 
 def open_ableitung_popup():
     global ableitungs_popup
@@ -540,7 +560,7 @@ def open_legend():
     ttk.Label(frame, text="|2x|  → abs(2x)", font=text).pack(anchor='w', pady=(2, 5))
     tk.Label(frame, text="", font=text).pack()
     ttk.Label(frame, text="Spezielle Funktionen:", font=(schriftart, 11, 'bold')).pack(anchor='w')
-    for func in ['sinc', 'sin', 'cos', 'tan', 'arcsin', 'arccos', 'arctan', 'ln', 'log']:
+    for func in comp_input.spec_funcs.keys():
         tk.Label(frame, text=f"- {func}(x)", font=text).pack(anchor='w')
     tk.Label(frame, text="- eˣ    → exp(x)", font=text).pack(anchor='w', pady=(5, 0))
     tk.Label(frame, text="- e²ˣ   → exp(2x)", font=text).pack(anchor='w', pady=(5, 0))

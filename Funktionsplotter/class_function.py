@@ -1,5 +1,5 @@
 import numpy as np
-from comp_input import parser, interpreted
+from comp_input import parser, interpreted, handle_error
 
 max_funcs = 10
 func_names = [
@@ -11,6 +11,7 @@ colors = [
     "mediumslateblue", "turquoise", "indigo",
     "olive", "crimson", "lightpink"
 ]
+functions = {}
 
 x_range_kord = [-10, 10]
 y_range_kord = [-10, 10]
@@ -36,11 +37,15 @@ pan_state = {
 }
 
 class Funktion:
+    id_counter = 0 
+
     def __init__(self, name, raw_expr):
+        self.id = Funktion.id_counter  
+        Funktion.id_counter += 1
         self.name = name
         self.raw_expr = raw_expr
-        self.interpreted_expr = interpreted(raw_expr)
-        self.parsed_expr = parser(raw_expr)
+        self.parsed_expr = parser(raw_expr)  
+        self.interpreted_expr = interpreted(raw_expr)  
         self.derivative_raw = None
         self.filter_values = None
 
@@ -57,14 +62,7 @@ class Funktion:
 
     def __repr__(self):
         return (
-            f"Funktion(\n"
-            f"  name='{self.name}',\n"
-            f"  raw='{self.raw_expr}',\n"
-            f"  interpreted='{self.interpreted_expr}',\n"
-            f"  parsed='{self.parsed_expr}',\n"
-            f"  derivative='{self.derivative_raw}',\n"
-            f"  filter={self.filter_values}\n"
-            f")"
+            f"Funktion(name='{self.name}', raw_expr='{self.raw_expr}', "
+            f"interpreted_expr='{self.interpreted_expr}', parsed_expr='{self.parsed_expr}', "
+            f"derivative_raw='{self.derivative_raw}', filter_values={self.filter_values}, id={self.id})"
         )
-
-functions = {}
