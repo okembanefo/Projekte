@@ -108,26 +108,13 @@ def plot_functions(canvas, ax, error_label=None):
                     end=x_ax_max,
                     count=count_points
                 )
-                ax.plot(
-                    x,
-                    y,
-                    color=colors[i],
-                    label=f"{func.name} = {func.interpreted_expr}"
-                )
-                if func.derivative_raw:
-                    deriv_x, deriv_y = gen_funcs(
-                        parser(func.derivative_raw),
-                        allow_compl=False,
-                        start=x_ax_min,
-                        end=x_ax_max,
-                        count=count_points
-                    )
+               
+                if len(x) > 0 and len(y) > 0:
                     ax.plot(
-                        deriv_x,
-                        deriv_y,
+                        x,
+                        y,
                         color=colors[i],
-                        linestyle="--",
-                        label=f"{func.name.split('(')[0]}'(x) = {interpreted(func.derivative_raw)}"
+                        label=f"{func.name} = {func.interpreted_expr}"
                     )
             except ValueError as e:
                 if error_label:
