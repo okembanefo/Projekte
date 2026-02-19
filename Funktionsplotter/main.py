@@ -11,7 +11,7 @@ from comp_input import interpreted, parser
 from plot_logic import conv_to_func
 from logic_gui import plot_functions, lighter_color, darker_color
 import class_function
-from class_function import Funktion, functions, func_names, colors, max_funcs
+from class_function import Funktion, functions, func_names, colors, max_funcs, filter_funcs, entry_widgets
 from comp_input import handle_error
 
 
@@ -254,13 +254,24 @@ def is_valid_expression(expr):
 def on_entry_change(event, index):
     if index >= len(func_entries):
         return
-    text = func_entries[index].get().strip()
+
     func_name = func_names[index]
+
+    # --- Filter für diese Funktion zurücksetzen ---
+    if func_name in class_function.filter_funcs:
+        class_function.filter_funcs[func_name] = [None, None, None, None, False]
+
+    # Optional: Fehleranzeige zurücksetzen
+    interpreted_labels[index].config(
+        text="Interpretiert als: ",
+        foreground="gray"
+    )
+
+    # Funktion weiterhin aktualisieren
+    text = func_entries[index].get().strip()
     if text:
         try:
             if is_valid_expression(text):
-                if func_name in functions and text == functions[func_name].raw_expr:
-                    return
                 if func_name not in functions:
                     functions[func_name] = Funktion(func_name, text)
                 else:
@@ -287,6 +298,7 @@ def on_entry_change(event, index):
             text="Interpretiert als: ",
             foreground="gray"
         )
+
 
 def open_ableitung_popup():
     global ableitungs_popup
@@ -620,23 +632,29 @@ def open_integration_popup():
         calculate_area()
 
 
+
 def open_filter_popup():
     global filter_popup
     if 'filter_popup' in globals() and filter_popup is not None and filter_popup.winfo_exists():
         filter_popup.destroy()
+
     filter_popup = Toplevel(root)
     filter_popup.title("Filter")
     filter_popup.geometry("720x400")
+
     frame = Frame(filter_popup)
     frame.pack(padx=15, pady=15, fill='both', expand=True)
+
     func_list = []
     for func_name in func_names:
         if func_name in functions:
             func_str = functions[func_name].raw_expr
             func_list.append((func_name, func_str))
+
     if not func_list:
         ttk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
         return
+
     table = Frame(frame)
     table.pack(fill='x')
     table.grid_columnconfigure(0, minsize=25)
@@ -647,6 +665,7 @@ def open_filter_popup():
     table.grid_columnconfigure(5, minsize=55)
     table.grid_columnconfigure(6, minsize=85)
     table.grid_columnconfigure(7, minsize=25)
+
     ttk.Label(table, text="Funktion:", font=text).grid(row=0, column=0, columnspan=2, pady=(0, 8), sticky="w")
     ttk.Label(table, text="X-Bereich:", font=text).grid(row=0, column=2, columnspan=2, sticky="w")
     ttk.Label(table, text="Y-Bereich:", font=text).grid(row=0, column=4, columnspan=2, sticky="w")
@@ -654,19 +673,18 @@ def open_filter_popup():
     ttk.Label(table, text="bis", font=sm_text).grid(row=1, column=3, sticky="w")
     ttk.Label(table, text="von", font=sm_text).grid(row=1, column=4, sticky="w")
     ttk.Label(table, text="bis", font=sm_text).grid(row=1, column=5, sticky="w")
-    entry_widgets = {}
+
+
     for row, (func_name, func_str) in enumerate(func_list, start=2):
         idx = func_names.index(func_name)
         base_color = colors[idx]
+
         circle = Canvas(table, width=18, height=18, bg=base_color, bd=0, highlightthickness=0)
         circle.grid(row=row, column=0, padx=(0, 5), pady=4)
-        func_label = ttk.Label(
-            table,
-            text=f"{func_name} = {interpreted(func_str)}",
-            font=text,
-            anchor="w"
-        )
+
+        func_label = ttk.Label(table, text=f"{func_name} = {interpreted(func_str)}", font=text, anchor="w")
         func_label.grid(row=row, column=1, sticky='w', padx=(0, 10))
+
         x_from_entry = ttk.Entry(table, width=8, font=sm_text)
         x_from_entry.grid(row=row, column=2, padx=1)
         x_to_entry = ttk.Entry(table, width=8, font=sm_text)
@@ -675,24 +693,37 @@ def open_filter_popup():
         y_from_entry.grid(row=row, column=4, padx=1)
         y_to_entry = ttk.Entry(table, width=8, font=sm_text)
         y_to_entry.grid(row=row, column=5, padx=1)
+
         hide_var = BooleanVar()
-        hide_check = Checkbutton(
-            table,
-            text="Ausblenden",
-            variable=hide_var,
-            font=sm_text
-        )
+        hide_check = Checkbutton(table, text="Ausblenden", variable=hide_var, font=sm_text)
         hide_check.grid(row=row, column=6, padx=3, sticky="w")
+
         reset_button = ttk.Button(
             table,
             text="↻",
             style="AktionButton.TButton",
             width=2,
-            command=lambda xf=x_from_entry, xt=x_to_entry,
-                           yf=y_from_entry, yt=y_to_entry, hv=hide_var:
-                reset_filter_row(xf, xt, yf, yt, hv)
+            command=lambda fn=func_name: reset_filter_row(fn)
         )
         reset_button.grid(row=row, column=7, padx=2)
+
+        # --- Vorher gespeicherte Filterwerte übernehmen ---
+        if func_name in class_function.filter_funcs:
+            cf = class_function.filter_funcs[func_name]
+            x_from_entry.delete(0, tk.END)
+            if cf[0] is not None:
+                x_from_entry.insert(0, str(cf[0]))
+            x_to_entry.delete(0, tk.END)
+            if cf[1] is not None:
+                x_to_entry.insert(0, str(cf[1]))
+            y_from_entry.delete(0, tk.END)
+            if cf[2] is not None:
+                y_from_entry.insert(0, str(cf[2]))
+            y_to_entry.delete(0, tk.END)
+            if cf[3] is not None:
+                y_to_entry.insert(0, str(cf[3]))
+            hide_var.set(cf[4])
+
         entry_widgets[func_name] = {
             "x_from": x_from_entry,
             "x_to": x_to_entry,
@@ -700,16 +731,56 @@ def open_filter_popup():
             "y_to": y_to_entry,
             "hide": hide_var
         }
+
     button_frame = Frame(frame)
     button_frame.pack(pady=15)
+
+    def apply_and_store_filters():
+        # Filter anwenden
+        process_filters(entry_widgets, canvas, ax)
+        # Alle angewendeten Filter in class_function.filter_funcs speichern
+        for fname, widgets in entry_widgets.items():
+            x_from_val = widgets["x_from"].get().strip() or None
+            x_to_val = widgets["x_to"].get().strip() or None
+            y_from_val = widgets["y_from"].get().strip() or None
+            y_to_val = widgets["y_to"].get().strip() or None
+            hide_val = widgets["hide"].get()
+            class_function.filter_funcs[fname] = [x_from_val, x_to_val, y_from_val, y_to_val, hide_val]
+        # Popup schließen
+        filter_popup.destroy()
+
+    def reset_all_filters():
+        global entry_widgets
+        for func_name, widgets in entry_widgets.items():
+            widgets["x_from"].delete(0, 'end')
+            widgets["x_to"].delete(0, 'end')
+            widgets["y_from"].delete(0, 'end')
+            widgets["y_to"].delete(0, 'end')
+            widgets["hide"].set(False)
+            class_function.filter_funcs[func_name] = [None, None, None, None, False]
+
+            # Funktion neu plotten
+            func_obj = functions[func_name]
+            f = conv_to_func(func_obj.parsed_expr)
+            x = np.linspace(-50, 50, 1000)
+            y = f(x)
+            for line in ax.lines[:]:
+                if line.get_label().startswith(func_name):
+                    line.remove()
+            ax.plot(x, y, label=f"{func_name} = {interpreted(func_obj.raw_expr)}", color=colors[func_names.index(func_name)])
+
+        ax.legend(fontsize=12)
+        canvas.draw()
+
     apply_button = ttk.Button(
         button_frame,
         text="Anwenden",
-        command=lambda: process_filters(entry_widgets, canvas, ax),
+        command=apply_and_store_filters,
         style="TextButton.TButton",
         width=12
     )
     apply_button.pack(side="left", padx=5, ipady=3)
+
     reset_all_button = ttk.Button(
         button_frame,
         text="Alles zurücksetzen",
@@ -719,18 +790,39 @@ def open_filter_popup():
     )
     reset_all_button.pack(side="left", padx=5, ipady=3)
 
-def reset_filter_row(x_from_entry, x_to_entry, y_from_entry, y_to_entry, hide_var):
-    x_from_entry.delete(0, tk.END)
-    x_to_entry.delete(0, tk.END)
-    y_from_entry.delete(0, tk.END)
-    y_to_entry.delete(0, tk.END)
-    hide_var.set(False)
+def reset_filter_row(func_name):
+    global entry_widgets
+    if func_name not in entry_widgets:
+        return
 
-def reset_all_filters():
-    for func_name in functions:
-        functions[func_name].set_filter([None, None, None, None])
-    logic_gui.plot_functions(canvas, ax)
+    widgets = entry_widgets[func_name]
+    # Eingabefelder leeren
+    widgets["x_from"].delete(0, 'end')
+    widgets["x_to"].delete(0, 'end')
+    widgets["y_from"].delete(0, 'end')
+    widgets["y_to"].delete(0, 'end')
+    widgets["hide"].set(False)
 
+    # Filter zurücksetzen
+    class_function.filter_funcs[func_name] = [None, None, None, None, False]
+
+    # Funktion neu plotten
+    func_obj = functions[func_name]
+    f = conv_to_func(func_obj.parsed_expr)
+    x = np.linspace(-50, 50, 1000)
+    y = f(x)
+
+    # Alte Linien der Funktion entfernen
+    for line in ax.lines[:]:
+        if line.get_label().startswith(func_name):
+            line.remove()
+
+    # Neue Linie plotten
+    ax.plot(x, y, label=f"{func_name} = {interpreted(func_obj.raw_expr)}",
+            color=colors[func_names.index(func_name)])
+    ax.legend(fontsize=12)
+    canvas.draw() 
+    
 def open_legend():
     legend_popup = Toplevel(root)
     legend_popup.title("Legende")

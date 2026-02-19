@@ -12,10 +12,12 @@ colors = [
     "olive", "crimson", "lightpink"
 ]
 functions = {}
+filter_funcs = {}  
+entry_widgets = {}
 
 x_range_kord = [-10, 10]
 y_range_kord = [-10, 10]
-count_points = 50000
+count_points = 1000000
 axis_in_radians = False
 show_positive_only = False
 is_panning = False
