@@ -132,7 +132,6 @@ def plot_functions(canvas, ax, error_label=None):
             except ValueError as e:
                 if error_label:
                     error_label.config(text=str(e), foreground="red")
-                print(f"Fehler bei {func_name}: {e}")
                 continue
             except Exception as e:
                 if error_label:
