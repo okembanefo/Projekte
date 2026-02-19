@@ -32,22 +32,7 @@ def conv_to_func(expr):
     return func
 
 def gen_funcs(expr: str, allow_compl: bool = False, start: float = -10, end: float = 10, count: int = 1000) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Generiert x- und y-Werte für einen Funktionsausdruck.
 
-    Args:
-        expr: Der Funktionsausdruck.
-        allow_compl: Ob komplexe Werte erlaubt sind.
-        start: Startwert für x.
-        end: Endwert für x.
-        count: Anzahl der Punkte.
-
-    Returns:
-        (x, y): Die x- und y-Werte.
-
-    Raises:
-        ValueError: Wenn die Auswertung fehlschlägt.
-    """
     try:
         x = np.linspace(start, end, count)
         y = eval_ast(expr, x)

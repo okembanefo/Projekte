@@ -288,8 +288,6 @@ def on_entry_change(event, index):
             foreground="gray"
         )
 
-
-
 def open_ableitung_popup():
     global ableitungs_popup
     if ableitungs_popup is not None and ableitungs_popup.winfo_exists():
@@ -300,7 +298,9 @@ def open_ableitung_popup():
     ableitungs_popup.geometry("300x400")
     frame = Frame(ableitungs_popup)
     frame.pack(padx=10, pady=10, fill='both')
+
     func_list = []
+
     for i, func_name in enumerate(func_names):
         if func_name in functions:
             func_str = functions[func_name].raw_expr
@@ -343,24 +343,28 @@ def plot_ableitung(func_name, func_str):
     except Exception as e:
         messagebox.showerror("Fehler", f"Ableitung konnte nicht berechnet werden: {e}")
 
-
 def open_integration_popup():
     global integration_popup
+
     if 'integration_popup' in globals() and integration_popup is not None and integration_popup.winfo_exists():
         integration_popup.destroy()
         integration_popup = None
-    integration_popup = Toplevel(root)
-    integration_popup.title("Integration")
-    integration_popup.geometry("300x400")
-    frame = Frame(integration_popup)
+
+    integrations_poup = Toplevel(root)
+    integrations_poup.title("Integration")
+    integrations_poup.geometry("300x400")
+
+    frame = Frame(integrations_poup)
     frame.pack(padx=15, pady=15, fill='both', expand=True)
+
     func_list = []
+
     for i, func_name in enumerate(func_names):
         if func_name in functions:
             func_str = functions[func_name].raw_expr
             func_list.append((func_name, func_str))
     if not func_list:
-        tk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
+        ttk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
         return
     for func_name, func_str in func_list:
         idx = func_names.index(func_name)
@@ -372,43 +376,123 @@ def open_integration_popup():
         btn = ttk.Button(
             container,
             text=f"{func_name} = {interpreted(func_str)}",
-            command=lambda name=func_name, s=func_str: select_integration_range(name, s),
+            command=lambda name=func_name, s=func_str: open_integration_window(name, s),
             style="TextButton.TButton",
             padding=(5, 12)
         )
         btn.pack(side='left', fill='x', expand=True)
 
-def select_integration_range(func_name, func_str):
-    range_popup = Toplevel(root)
-    range_popup.title(f"Integrationsbereich für {func_name}")
-    range_popup.geometry("250x200")
-    tk.Label(range_popup, text="Untergrenze (a):").pack(pady=5)
-    entry_a = tk.Entry(range_popup)
-    entry_a.pack(pady=5)
-    tk.Label(range_popup, text="Obergrenze (b):").pack(pady=5)
-    entry_b = tk.Entry(range_popup)
-    entry_b.pack(pady=5)
+    def open_integration_window(func_name, func_str):
+        integrations_poup.destroy()
 
-    spec_cons = {
-        "pi": np.pi,
-        "e": np.e,
-        "euler": np.e,
-        "tau": 2 * np.pi
-    }
+        integration_popup = Toplevel(root)
+        integration_popup.title(f"Integration von {func_name}")
+        integration_popup.geometry("500x430")
 
-    def submit():
-        a_str = entry_a.get()
-        b_str = entry_b.get()
-        try:
-            a = eval(a_str, {"__builtins__": None}, {"np": np, **spec_cons})
-            b = eval(b_str, {"__builtins__": None}, {"np": np, **spec_cons})
-        except Exception as e:
-            messagebox.showerror("Fehler", f"Ungültiger Wert: {e}")
-            return
-        range_popup.destroy()
-        plot_integration(func_name, func_str, a, b)
+        main_frame = Frame(integration_popup, padx=15, pady=10)
+        main_frame.pack(fill='both', expand=True)
 
-    tk.Button(range_popup, text="OK", command=submit).pack(pady=10)
+        # Funktionsanzeige
+        ttk.Label(main_frame, text=f"Integration von f(x) = {interpreted(func_str)}", font=text).pack(pady=(0, 10))
+
+        input_frame = Frame(main_frame)
+        input_frame.pack(fill='x', pady=5)
+
+        empty_column = Frame(input_frame, width=100)
+        empty_column.grid(row=0, column=2)
+
+        # Label und Eingabefeld für a
+        ttk.Label(input_frame, text="a:", font=text).grid(row=0, column=0, padx=5, pady=2)
+        entry_a = ttk.Entry(input_frame, font=text, width=8)
+        entry_a.grid(row=0, column=1, padx=5, pady=2, sticky='ew')
+
+        empty_column = Frame(input_frame, width=130)
+        empty_column.grid(row=0, column=2)
+
+        # Label und Eingabefeld für b
+        ttk.Label(input_frame, text="b:", font=text).grid(row=0, column=3, padx=5, pady=2)
+        entry_b = ttk.Entry(input_frame, font=text, width=8)
+        entry_b.grid(row=0, column=4, padx=5, pady=2, sticky='ew')
+
+        # Plot-Frame mit fester Größe
+        plot_frame = Frame(main_frame, width=450, height=250)  
+        plot_frame.pack(pady=5)
+        plot_frame.pack_propagate(False)  
+
+        fig = Figure(figsize=(4.5, 2.3), dpi=90)  # Y-Richtung um 1/4 verkleinert
+        plot_ax = fig.add_subplot(111)
+        canvas = FigureCanvasTkAgg(fig, master=plot_frame)
+        canvas.get_tk_widget().pack(fill='both', expand=False)  
+
+        # Achsen formatieren
+        plot_ax.spines["top"].set_visible(False)
+        plot_ax.spines["right"].set_visible(False)
+        plot_ax.spines["bottom"].set_color(farbe)
+        plot_ax.spines["left"].set_color(farbe)
+        plot_ax.spines["bottom"].set_linewidth(1)
+        plot_ax.spines["left"].set_linewidth(1)
+        plot_ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
+
+        # Farbeinstellungen
+        idx = func_names.index(func_name)
+        line_color = colors[idx]
+
+        # Ergebnisanzeige direkt unter dem Plot
+        result_frame = Frame(main_frame)
+        result_frame.pack(fill='x', pady=5)
+
+        result_label = ttk.Label(result_frame, text="", font=text)
+        result_label.pack()
+
+        spec_cons = {
+            "pi": np.pi,
+            "e": np.e,
+            "euler": np.e,
+            "tau": 2 * np.pi
+        }
+
+        def calculate_area(event=None):
+            a_str = entry_a.get()
+            b_str = entry_b.get()
+            try:
+                a = eval(a_str, {"__builtins__": None}, {"np": np, **spec_cons})
+                b = eval(b_str, {"__builtins__": None}, {"np": np, **spec_cons})
+            except Exception as e:
+                result_label.config(text=f"Fehler: Ungültiger Wert: {e}", foreground="red")
+                return
+
+            try:
+                func = conv_to_func(functions[func_name].parsed_expr)
+                x = np.linspace(a - 0.5, b + 0.5, 400)
+                y = func(x)
+
+                plot_ax.clear()
+                plot_ax.plot(x, y, color=line_color)
+                plot_ax.axvline(x=a, color='gray', linestyle='--')
+                plot_ax.axvline(x=b, color='gray', linestyle='--')
+
+                x_fill = np.linspace(a, b, 100)
+                y_fill = func(x_fill)
+                fill_color = darker_color(line_color)
+                plot_ax.fill_between(x_fill, y_fill, color=fill_color, alpha=0.5)
+
+                # Y-Achsenbereich anpassen
+                plot_ax.set_ylim(min(0, min(y_fill)*1.1), max(y_fill)*1.1)
+
+                canvas.draw()
+
+                area = integration(func, a, b)
+                result_label.config(text=f"Fläche: {area:.4f}", foreground="black")
+            except Exception as e:
+                result_label.config(text=f"Fehler: {e}", foreground="red")
+
+        entry_a.bind("<KeyRelease>", calculate_area)
+        entry_b.bind("<KeyRelease>", calculate_area)
+
+        entry_a.insert(0, "0")
+        entry_b.insert(0, "0")
+
+        calculate_area()
 
 
 def plot_integration(func_name, func_str, a, b):
