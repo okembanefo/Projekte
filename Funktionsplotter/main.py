@@ -18,7 +18,7 @@ from comp_input import handle_error
 root = tk.Tk()
 root.title("Funktionsplotter")
 
-schriftart = "Tahoma"
+schriftart = "Helvetica"
 b_schrift = "Tahoma"
 farbe = "darkslategrey"
 text = (schriftart, 12)
@@ -290,58 +290,183 @@ def on_entry_change(event, index):
 
 def open_ableitung_popup():
     global ableitungs_popup
-    if ableitungs_popup is not None and ableitungs_popup.winfo_exists():
+
+    if 'ableitungs_popup' in globals() and ableitungs_popup is not None and ableitungs_popup.winfo_exists():
         ableitungs_popup.destroy()
         ableitungs_popup = None
+
     ableitungs_popup = Toplevel(root)
-    ableitungs_popup.title("Ableitung berechnen")
+    ableitungs_popup.title("Ableitung")
     ableitungs_popup.geometry("300x400")
+
     frame = Frame(ableitungs_popup)
-    frame.pack(padx=10, pady=10, fill='both')
+    frame.pack(padx=15, pady=15, fill='both', expand=True)
 
     func_list = []
 
-    for i, func_name in enumerate(func_names):
+    for func_name in func_names:
         if func_name in functions:
             func_str = functions[func_name].raw_expr
             func_list.append((func_name, func_str))
+
     if not func_list:
-        tk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
+        ttk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
         return
+
     for func_name, func_str in func_list:
         idx = func_names.index(func_name)
         base_color = colors[idx]
+
         container = Frame(frame)
         container.pack(pady=5, fill='x')
-        circle = Canvas(container, width=20, height=20, bg=base_color, bd=0, highlightthickness=0)
+
+        circle = Canvas(container, width=20, height=20,
+                        bg=base_color, bd=0, highlightthickness=0)
         circle.pack(side='left', padx=(0, 5))
+
         btn = ttk.Button(
             container,
             text=f"{func_name} = {interpreted(func_str)}",
-            command=lambda name=func_name, s=func_str: plot_ableitung(name, s),
+            command=lambda n=func_name, s=func_str:
+                open_derivative_window(n, s),
             style="TextButton.TButton",
             padding=(5, 12)
         )
         btn.pack(side='left', fill='x', expand=True)
 
-def plot_ableitung(func_name, func_str):
-    try:
+
+    def open_derivative_window(func_name, func_str):
+
+        ableitungs_popup.destroy()
+
+        deriv_popup = Toplevel(root)
+        deriv_popup.title(f"Ableitung von {func_name}")
+        deriv_popup.geometry("500x450")
+
+        main_frame = Frame(deriv_popup, padx=15, pady=10)
+        main_frame.pack(fill='both', expand=True)
+
+        ttk.Label(
+            main_frame,
+            text=f"Ableitung von f(x) = {interpreted(func_str)}",
+            font=text
+        ).pack(pady=(0, 10))
+
+        input_frame = Frame(main_frame)
+        input_frame.pack(fill='x', pady=5)
+
+        ttk.Label(input_frame, text="x-Wert:", font=text).grid(row=0, column=0, padx=5)
+
+        entry_x = ttk.Entry(input_frame, font=text, width=10)
+        entry_x.grid(row=0, column=1, padx=5)
+        entry_x.insert(0, "0")
+
+        plot_frame = Frame(main_frame, width=450, height=300)
+        plot_frame.pack(pady=5)
+        plot_frame.pack_propagate(False)
+
+        fig = Figure(figsize=(4.5, 3), dpi=90)
+        plot_ax = fig.add_subplot(111)
+
+        canvas_local = FigureCanvasTkAgg(fig, master=plot_frame)
+        canvas_local.get_tk_widget().pack(fill='both', expand=False)
+
+        # ---------- ACHSENSTYLING ---------- #
+
+        plot_ax.spines["top"].set_visible(False)
+        plot_ax.spines["right"].set_visible(False)
+
+        plot_ax.spines["bottom"].set_color(farbe)
+        plot_ax.spines["left"].set_color(farbe)
+
+        plot_ax.spines["bottom"].set_linewidth(1)
+        plot_ax.spines["left"].set_linewidth(1)
+
+        plot_ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
+
+        # ---------- FARBEN ---------- #
+
+        idx = func_names.index(func_name)
+        base_color = colors[idx]
+        light_color = lighter_color(base_color)
+
+        result_label = ttk.Label(main_frame, text="", font=text)
+        result_label.pack(pady=5)
+
+        func = conv_to_func(functions[func_name].parsed_expr)
+
         deriv_str = ableitung(func_str)
+        deriv_func = conv_to_func(parser(deriv_str))
 
-        if deriv_str.startswith("d/dx("):
-            messagebox.showerror("Fehler", f"Ableitung von {func_str} nicht bekannt.")
-            return
+        def parse_x_value(val):
+            val = val.replace("pi", str(np.pi))
+            val = val.replace("tau", str(2 * np.pi))
+            return float(eval(val))
 
-        if func_name not in functions:
-            functions[func_name] = class_function.Funktion(func_name, func_str)
+        def update_plot(event=None):
+            try:
+                x_val = parse_x_value(entry_x.get())
+            except:
+                result_label.config(text="Ungültiger x-Wert", foreground="red")
+                return
 
-        functions[func_name].set_derivative(deriv_str)
+            x = np.linspace(x_val - 5, x_val + 5, 400)
 
-        # Aktualisieren Sie die Plot-Funktion
-        logic_gui.plot_functions(canvas, ax)
+            y = func(x)
+            y_deriv = deriv_func(x)
 
-    except Exception as e:
-        messagebox.showerror("Fehler", f"Ableitung konnte nicht berechnet werden: {e}")
+            plot_ax.clear()
+
+            # ---------- ACHSEN NACH CLEAR ---------- #
+
+            plot_ax.spines["top"].set_visible(False)
+            plot_ax.spines["right"].set_visible(False)
+
+            plot_ax.spines["bottom"].set_color(farbe)
+            plot_ax.spines["left"].set_color(farbe)
+
+            plot_ax.spines["bottom"].set_linewidth(1)
+            plot_ax.spines["left"].set_linewidth(1)
+
+            plot_ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
+
+            # ---------- PLOTS (GEÄNDERT) ---------- #
+
+            # f(x) originale Farbe
+            plot_ax.plot(
+                x, y,
+                color=base_color,
+                label=f"f(x) = {interpreted(func_str)}"
+            )
+
+            # f'(x) heller + gestrichelt
+            plot_ax.plot(
+                x, y_deriv,
+                color=light_color,
+                linestyle="--",
+                label=f"f'(x) = {interpreted(deriv_str)}"
+            )
+
+            y_val = deriv_func(x_val)
+
+            # Hilfslinien beide grau
+            plot_ax.axvline(x=x_val, color='gray', linestyle='--')
+            plot_ax.axhline(y=y_val, color='gray', linestyle='--')
+
+            plot_ax.legend(fontsize=9)
+
+            canvas_local.draw()
+
+            result_label.config(
+                text=f"f'({x_val}) = {y_val:.4f}",
+                foreground="black"
+            )
+
+        entry_x.bind("<KeyRelease>", update_plot)
+
+        update_plot()
+
+
 
 def open_integration_popup():
     global integration_popup
@@ -494,30 +619,6 @@ def open_integration_popup():
 
         calculate_area()
 
-
-def plot_integration(func_name, func_str, a, b):
-    try:
-        func = conv_to_func(functions[func_name].parsed_expr)
-        x = np.linspace(a - 1, b + 1, 400)
-        y = func(x)
-        fig, ax = plt.subplots()
-        ax.plot(x, y, label=f'{func_name} = {interpreted(func_str)}')
-        ax.axvline(x=a, color='gray', linestyle='--')
-        ax.axvline(x=b, color='gray', linestyle='--')
-        x_fill = np.linspace(a, b, 100)
-        y_fill = func(x_fill)
-        ax.fill_between(x_fill, y_fill, color='gray', alpha=0.3)
-        ax.set_title(f'Integral von {func_name} von {a:.2f} bis {b:.2f}')
-        ax.legend()
-        area = integration(func, a, b)
-        plot_window = Toplevel(root)
-        plot_window.title("Integral Plot")
-        canvas = FigureCanvasTkAgg(fig, master=plot_window)
-        canvas.draw()
-        canvas.get_tk_widget().pack()
-        ttk.Label(plot_window, text=f"Fläche: {area:.2f}").pack(pady=10)
-    except Exception as e:
-        messagebox.showerror("Fehler", f"Fehler beim Plotten: {e}")
 
 def open_filter_popup():
     global filter_popup
