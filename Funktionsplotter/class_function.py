@@ -12,9 +12,11 @@ colors = [
     "mediumslateblue", "turquoise", "indigo",
     "olive", "crimson", "lightpink"
 ]
+
 functions = {}
 filter_funcs = {}  
 entry_widgets = {}
+
 
 x_range_kord = [-10, 10]
 y_range_kord = [-10, 10]
