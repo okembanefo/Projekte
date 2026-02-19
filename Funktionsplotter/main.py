@@ -18,13 +18,13 @@ from comp_input import handle_error
 root = tk.Tk()
 root.title("Funktionsplotter")
 
-schriftart = "Helvetica"
+schriftart = "Segoe UI"
 b_schrift = "Tahoma"
 farbe = "darkslategrey"
-text = (schriftart, 12)
+text = (schriftart, 10)
 sm_text = (schriftart, 10)
 aktion = (b_schrift, 12)
-entry = (schriftart, 12)
+entry = (schriftart, 11)
 plt.rcParams['font.family'] = schriftart
 plt.rcParams['font.size'] = 10
 
