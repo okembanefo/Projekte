@@ -367,10 +367,10 @@ def open_ableitung_popup():
         input_frame = Frame(main_frame)
         input_frame.pack(fill='x', pady=5)
 
-        ttk.Label(input_frame, text="x-Wert:", font=text).grid(row=0, column=0, padx=5)
+        ttk.Label(input_frame, text="x:", font=text).grid(row=0, column=0, padx=(170, 0))
 
         entry_x = ttk.Entry(input_frame, font=text, width=10)
-        entry_x.grid(row=0, column=1, padx=5)
+        entry_x.grid(row=0, column=1, padx=(5, 200))
         entry_x.insert(0, "0")
 
         plot_frame = Frame(main_frame, width=450, height=300)
@@ -487,150 +487,184 @@ def open_integration_popup():
         integration_popup.destroy()
         integration_popup = None
 
-    integrations_poup = Toplevel(root)
-    integrations_poup.title("Integration")
-    integrations_poup.geometry("300x400")
+    integration_popup = Toplevel(root)
+    integration_popup.title("Integration")
+    integration_popup.geometry("300x400")
 
-    frame = Frame(integrations_poup)
+    frame = Frame(integration_popup)
     frame.pack(padx=15, pady=15, fill='both', expand=True)
 
     func_list = []
 
-    for i, func_name in enumerate(func_names):
+    for func_name in func_names:
         if func_name in functions:
             func_str = functions[func_name].raw_expr
             func_list.append((func_name, func_str))
+
     if not func_list:
         ttk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
         return
+
     for func_name, func_str in func_list:
         idx = func_names.index(func_name)
         base_color = colors[idx]
+
         container = Frame(frame)
         container.pack(pady=5, fill='x')
-        circle = Canvas(container, width=20, height=20, bg=base_color, bd=0, highlightthickness=0)
+
+        circle = Canvas(container, width=20, height=20,
+                        bg=base_color, bd=0, highlightthickness=0)
         circle.pack(side='left', padx=(0, 5))
+
         btn = ttk.Button(
             container,
             text=f"{func_name} = {interpreted(func_str)}",
-            command=lambda name=func_name, s=func_str: open_integration_window(name, s),
+            command=lambda n=func_name, s=func_str:
+                open_integration_window(n, s),
             style="TextButton.TButton",
             padding=(5, 12)
         )
         btn.pack(side='left', fill='x', expand=True)
 
+    # -------------------------------------------------
+
     def open_integration_window(func_name, func_str):
-        integrations_poup.destroy()
 
-        integration_popup = Toplevel(root)
-        integration_popup.title(f"Integration von {func_name}")
-        integration_popup.geometry("500x430")
+        integration_popup.destroy()
 
-        main_frame = Frame(integration_popup, padx=15, pady=10)
+        popup = Toplevel(root)
+        popup.title(f"Integration von {func_name}")
+        popup.geometry("500x450")
+
+        main_frame = Frame(popup, padx=15, pady=10)
         main_frame.pack(fill='both', expand=True)
 
-        # Funktionsanzeige
-        ttk.Label(main_frame, text=f"Integration von f(x) = {interpreted(func_str)}", font=text).pack(pady=(0, 10))
+        ttk.Label(
+            main_frame,
+            text=f"Integration von f(x) = {interpreted(func_str)}",
+            font=text
+        ).pack(pady=(0, 10))
 
+        # Eingaben
         input_frame = Frame(main_frame)
         input_frame.pack(fill='x', pady=5)
 
-        empty_column = Frame(input_frame, width=100)
-        empty_column.grid(row=0, column=2)
+        ttk.Label(input_frame, text="a:", font=text).grid(row=0, column=0, padx=(50, 5))
+        entry_a = ttk.Entry(input_frame, font=text, width=10)
+        entry_a.grid(row=0, column=1, padx=(0, 85))
 
-        # Label und Eingabefeld für a
-        ttk.Label(input_frame, text="a:", font=text).grid(row=0, column=0, padx=5, pady=2)
-        entry_a = ttk.Entry(input_frame, font=text, width=8)
-        entry_a.grid(row=0, column=1, padx=5, pady=2, sticky='ew')
+        ttk.Label(input_frame, text="b:", font=text).grid(row=0, column=2, padx=(20, 5))
+        entry_b = ttk.Entry(input_frame, font=text, width=10)
+        entry_b.grid(row=0, column=3, padx=(0, 95))
 
-        empty_column = Frame(input_frame, width=130)
-        empty_column.grid(row=0, column=2)
-
-        # Label und Eingabefeld für b
-        ttk.Label(input_frame, text="b:", font=text).grid(row=0, column=3, padx=5, pady=2)
-        entry_b = ttk.Entry(input_frame, font=text, width=8)
-        entry_b.grid(row=0, column=4, padx=5, pady=2, sticky='ew')
-
-        # Plot-Frame mit fester Größe
-        plot_frame = Frame(main_frame, width=450, height=250)  
+        # Plot
+        plot_frame = Frame(main_frame, width=450, height=300)
         plot_frame.pack(pady=5)
-        plot_frame.pack_propagate(False)  
+        plot_frame.pack_propagate(False)
 
-        fig = Figure(figsize=(4.5, 2.3), dpi=90)  # Y-Richtung um 1/4 verkleinert
+        fig = Figure(figsize=(4.5, 3), dpi=90)
         plot_ax = fig.add_subplot(111)
-        canvas = FigureCanvasTkAgg(fig, master=plot_frame)
-        canvas.get_tk_widget().pack(fill='both', expand=False)  
 
-        # Achsen formatieren
+        canvas_local = FigureCanvasTkAgg(fig, master=plot_frame)
+        canvas_local.get_tk_widget().pack(fill='both', expand=False)
+
+        # Achsenstyling
         plot_ax.spines["top"].set_visible(False)
         plot_ax.spines["right"].set_visible(False)
         plot_ax.spines["bottom"].set_color(farbe)
         plot_ax.spines["left"].set_color(farbe)
-        plot_ax.spines["bottom"].set_linewidth(1)
-        plot_ax.spines["left"].set_linewidth(1)
         plot_ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
 
-        # Farbeinstellungen
         idx = func_names.index(func_name)
-        line_color = colors[idx]
+        base_color = colors[idx]
+        dark_color = darker_color(base_color) 
 
-        # Ergebnisanzeige direkt unter dem Plot
-        result_frame = Frame(main_frame)
-        result_frame.pack(fill='x', pady=5)
+        result_label = ttk.Label(main_frame, text="", font=text)
+        result_label.pack(pady=5)
 
-        result_label = ttk.Label(result_frame, text="", font=text)
-        result_label.pack()
+        # Funktionen
+        func = conv_to_func(functions[func_name].parsed_expr)
+
+        integral_str = integration(func_str)
+        functions[func_name].set_integral(integral_str)
+
+        # --- Für den Plot: +C entfernen ---
+        plot_integral_str = integral_str.replace("+ C", "").replace("+C", "").replace("C +", "").replace("C+", "").strip()
+        integral_func = conv_to_func(parser(plot_integral_str))
 
         spec_cons = {
             "pi": np.pi,
             "e": np.e,
-            "euler": np.e,
             "tau": 2 * np.pi
         }
 
-        def calculate_area(event=None):
-            a_str = entry_a.get()
-            b_str = entry_b.get()
+        def parse_val(val):
+            return float(eval(val, {"__builtins__": None}, spec_cons))
+
+        def update_plot(event=None):
+
+            Fa = 0
+            Fb = 0
+
             try:
-                a = eval(a_str, {"__builtins__": None}, {"np": np, **spec_cons})
-                b = eval(b_str, {"__builtins__": None}, {"np": np, **spec_cons})
-            except Exception as e:
-                result_label.config(text=f"Fehler: Ungültiger Wert: {e}", foreground="red")
+                a = parse_val(entry_a.get())
+                b = parse_val(entry_b.get())
+            except:
+                result_label.config(text="Ungültige Grenzen", foreground="red")
                 return
 
-            try:
-                func = conv_to_func(functions[func_name].parsed_expr)
-                x = np.linspace(a - 0.5, b + 0.5, 400)
-                y = func(x)
+            x = np.linspace(min(a, b) - 5, max(a, b) + 5, 400)
 
-                plot_ax.clear()
-                plot_ax.plot(x, y, color=line_color)
-                plot_ax.axvline(x=a, color='gray', linestyle='--')
-                plot_ax.axvline(x=b, color='gray', linestyle='--')
+            y = func(x)
+            Y = integral_func(x)
 
-                x_fill = np.linspace(a, b, 100)
-                y_fill = func(x_fill)
-                fill_color = darker_color(line_color)
-                plot_ax.fill_between(x_fill, y_fill, color=fill_color, alpha=0.5)
+            plot_ax.clear()
 
-                # Y-Achsenbereich anpassen
-                plot_ax.set_ylim(min(0, min(y_fill)*1.1), max(y_fill)*1.1)
+            # Achsen nach clear
+            plot_ax.spines["top"].set_visible(False)
+            plot_ax.spines["right"].set_visible(False)
+            plot_ax.spines["bottom"].set_color(farbe)
+            plot_ax.spines["left"].set_color(farbe)
 
-                canvas.draw()
+            # f(x)
+            plot_ax.plot(
+                x, y,
+                color=base_color,
+                label=f"f(x) = {interpreted(func_str)}"
+            )
 
-                area = integration(func, a, b)
-                result_label.config(text=f"Fläche: {area:.4f}", foreground="black")
-            except Exception as e:
-                result_label.config(text=f"Fehler: {e}", foreground="red")
+            # F(x) dunkler + gestrichelt
+            plot_ax.plot(
+                x, Y,
+                color=dark_color,
+                linestyle="--",
+                label=f"F(x) = {interpreted(integral_str)}"  # Legend bleibt inkl. +C
+            )
 
-        entry_a.bind("<KeyRelease>", calculate_area)
-        entry_b.bind("<KeyRelease>", calculate_area)
+            Fa = integral_func(a)
+            Fb = integral_func(b)
+            value = Fb - Fa
+
+            # Grenzenlinien
+            plot_ax.axhline(y=Fa, color="gray", linestyle="--")
+            plot_ax.axhline(y=Fb, color="gray", linestyle="--")
+
+            value_str = f"{value:.4f}"
+            result_label.config(
+                text=f"F({b:.2f}) − F({a:.2f}) = {value_str}",
+                foreground="black"
+            )
+
+            plot_ax.legend(fontsize=9)
+            canvas_local.draw()
+
+        entry_a.bind("<KeyRelease>", update_plot)
+        entry_b.bind("<KeyRelease>", update_plot)
 
         entry_a.insert(0, "0")
         entry_b.insert(0, "0")
 
-        calculate_area()
-
+        update_plot()
 
 
 def open_filter_popup():

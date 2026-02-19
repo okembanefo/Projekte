@@ -3,7 +3,7 @@ import numpy as np
 from comp_input import combine_exponents, simplify_funcs
 from class_function import functions
 from logic_gui import plot_functions
-from sympy import symbols, sympify, diff
+from sympy import symbols, sympify, diff, integrate
 from comp_input import parser, rect, tri, handle_error, allowed_funcs, allowed_consts
 from plot_logic import conv_to_func
 from comp_input import interpreted
@@ -11,10 +11,19 @@ from class_function import colors, func_names
 
 x = symbols('x')
 
-def integration(func, a, b, steps=1000):
-    x = np.linspace(a, b, steps)
-    y = func(x)
-    return np.trapz(y, x)
+def integration(expr: str) -> str:
+    expr = expr.replace("^", "**")
+    expr = parser(expr)
+
+    expr = expr.replace("np.", "")
+
+    try:
+        sym_expr = sympify(expr)
+        integral = integrate(sym_expr, x)
+        return str(integral) + " + C"
+    except Exception as e:
+        return f"Fehler bei der Integration: {e}"
+
 
 def ableitung(expr: str) -> str:
     expr = expr.replace("^", "**")
