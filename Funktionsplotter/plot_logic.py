@@ -1,7 +1,6 @@
 import ast
 import numpy as np
-from comp_input import rect, tri, handle_error
-from comp_input import eval_ast, SafeEvaluator, handle_error
+from comp_input import eval_ast, SafeEvaluator, handle_error, rect, tri, delta
 
 user_funcs = []
 
@@ -58,7 +57,6 @@ def gen_funcs(expr: str, allow_compl: bool = False, start: float = -10, end: flo
         return x, y
 
     except ValueError as e:
-        raise ValueError(handle_error(expr, e))
+        return
     except Exception as e:
-        raise ValueError(handle_error(expr, e))
-
+        return

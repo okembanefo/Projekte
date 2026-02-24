@@ -1,17 +1,17 @@
 import tkinter as tk
 import numpy as np
-from tkinter import ttk, BooleanVar, Checkbutton, Toplevel, Frame, Canvas, messagebox, simpledialog, font, BOTH
+from tkinter import ttk, Radiobutton, BooleanVar, Checkbutton, Toplevel, Frame, Canvas, messagebox, simpledialog, font, BOTH
 import logic_gui
 import comp_input
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
-from add_ons import ableitung, integration, process_filters
+from add_ons import ableitung, integration, fourier, rfourier, process_filters
 from comp_input import interpreted, parser
 from plot_logic import conv_to_func
 from logic_gui import plot_functions, lighter_color, darker_color
 import class_function
-from class_function import Funktion, functions, func_names, colors, max_funcs, filter_funcs, entry_widgets
+from class_function import Funktion, functions, func_names, max_funcs, filter_funcs, entry_widgets, color_palettes, color_palette_names
 from comp_input import handle_error
 
 
@@ -52,25 +52,83 @@ root.geometry(f"{int(screen_width*0.8)}x{int(screen_height*0.8)}+{int(screen_wid
 
 func_entries = []
 interpreted_labels = []
+
 delete_buttons = []
-color_circles = []
 plus_button = None
 ableitungs_popup = None
+integration_popup = None
+fourier_popup = None
+rfourier_popup = None
+filter_popup = None
 
 main_frame = ttk.Frame(root)
 main_frame.pack(fill='both', expand=True)
 
-input_frame = ttk.Frame(main_frame, width=int(screen_width*0.8*1/3))
+input_frame = ttk.Frame(main_frame, width=int(screen_width*0.8*0.2))
 input_frame.pack(side='left', fill='y', padx=5, pady=10)
 input_frame.pack_propagate(False)
 
-plot_frame = ttk.Frame(main_frame, height=400)
-plot_frame.pack(side='left', fill='both', expand=True, padx=5, pady=5)
+input_frame_visible = True 
+button_frame_visible = True 
+
+plot_frame = ttk.Frame(main_frame)
+plot_frame.pack(side='left', fill='both', expand=True, padx=0, pady=5)
 plot_frame.pack_propagate(False)
 
-button_frame = ttk.Frame(main_frame, width=int(screen_width*0.8*1/5))
-button_frame.pack(side='right', fill='y', padx=5, pady=10)
-button_frame.pack_propagate(False)
+def toggle_input_fields():
+    global input_frame_visible
+
+    if input_frame_visible:
+        input_frame.pack_forget()
+        toggle_input_button.config(text="↪")
+        toggle_input_button.place(relx=0.05, rely=0.5, anchor='center')
+    else:
+        input_frame.pack(
+            side='left',
+            fill='y',
+            padx=5,
+            pady=10,
+            before=plot_frame
+        )
+        toggle_input_button.config(text="↩")
+        toggle_input_button.place(relx=0.17, rely=0.5, anchor='center')
+
+    input_frame_visible = not input_frame_visible
+    logic_gui.plot_functions(canvas, ax)
+
+
+def toggle_addons():
+    global button_frame, toggle_addons_button, button_frame_visible
+
+    if button_frame_visible:
+        button_frame.pack_forget()
+        toggle_addons_button.config(text="↩")
+        toggle_addons_button.place(relx=0.95, rely=0.5, anchor='center')
+    else:
+        button_frame.pack(side='right', fill='y', padx=5, pady=10)
+        toggle_addons_button.config(text="↪")
+        toggle_addons_button.place(relx=0.82, rely=0.5, anchor='center')
+
+    button_frame_visible = not button_frame_visible
+    logic_gui.plot_functions(canvas, ax)
+
+
+toggle_input_button = ttk.Button(
+    main_frame,
+    text="↩",
+    style="AktionButton.TButton",
+    command=toggle_input_fields
+)
+toggle_input_button.place(relx=0.17, rely=0.5, anchor='center', width=60, height=40)
+
+toggle_addons_button = ttk.Button(
+    main_frame,
+    text="↪",
+    style="AktionButton.TButton",
+    command=toggle_addons
+)
+toggle_addons_button.place(relx=0.80, rely=0.5, anchor='center', width=60, height=40)
+
 
 fig = Figure(figsize=(6, 4.5))
 ax = fig.add_subplot(111)
@@ -92,44 +150,287 @@ ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
 error_label = ttk.Label(root, text="", foreground="red", font=text)
 error_label.pack(pady=5)
 
+
 def open_settings():
     settings_window = Toplevel(root)
     settings_window.title("Einstellungen")
-    settings_window.geometry("300x200")
+    settings_window.geometry("350x400")
+
     frame = Frame(settings_window)
-    frame.pack(padx=10, pady=10, fill='both')
-    rad_var = BooleanVar(value=logic_gui.axis_in_radians)
-    rad_check = Checkbutton(frame, text="Achsen in Bogenmaß", variable=rad_var, font=text)
-    rad_check.pack(anchor='w', pady=5)
-    pos_var = BooleanVar(value=logic_gui.show_positive_only)
-    pos_check = Checkbutton(frame, text="Nur positive Y-Werte anzeigen", variable=pos_var, font=text)
-    pos_check.pack(anchor='w', pady=5)
-    def apply_settings():
-        logic_gui.axis_in_radians = rad_var.get()
-        logic_gui.show_positive_only = pos_var.get()
-        logic_gui.plot_functions(canvas, ax)
-        settings_window.destroy()
-    def reset_settings():
-        logic_gui.axis_in_radians = False
-        logic_gui.show_positive_only = False
-        rad_var.set(False)
-        pos_var.set(False)
-        logic_gui.plot_functions(canvas, ax)
-        settings_window.destroy()
-    ttk.Button(frame, text="Übernehmen", command=apply_settings).pack(pady=10)
-    ttk.Button(frame, text="Zurücksetzen", command=reset_settings).pack()
+    frame.pack(padx=15, pady=15, fill="both", expand=True)
+
+    def open_coordinate_popup():
+        from class_function import x_range_kord, y_range_kord
+
+        popup = Toplevel(settings_window)
+        popup.title("Koordinatensystem")
+        popup.geometry("350x250")
+
+        # Speichere den aktuellen Zoom-Bereich (X- und Y-Achse)
+        original_x_range = list(x_range_kord)
+        original_y_range = list(y_range_kord)
+
+        # Variable für die Auswahl
+        selection = tk.StringVar()
+        if getattr(class_function, 'show_negative_only', False):
+            selection.set("negative")
+        elif class_function.show_positive_only:
+            selection.set("positive")
+        else:
+            selection.set("all")
+
+        def apply():
+            # Wende die Auswahl an
+            if selection.get() == "positive":
+                class_function.show_positive_only = True
+                class_function.show_negative_only = False
+            elif selection.get() == "negative":
+                class_function.show_positive_only = False
+                class_function.show_negative_only = True
+            else:  # "all"
+                class_function.show_positive_only = False
+                class_function.show_negative_only = False
+
+            # Zeichne die Funktionen mit den neuen Filtereinstellungen
+            logic_gui.plot_functions(canvas, ax)
+
+
+            # Stelle den ursprünglichen Zoom-Bereich wieder her
+            x_range_kord[:] = original_x_range
+            y_range_kord[:] = original_y_range
+
+            # Setze den Achsenbereich zurück
+            ax.set_xlim(original_x_range)
+            if class_function.show_positive_only:
+                ax.set_ylim(bottom=0)  # Nur positive Y-Werte
+            elif getattr(class_function, 'show_negative_only', False):
+                ax.set_ylim(top=0)  # Nur negative Y-Werte
+            else:
+                ax.set_ylim(original_y_range)  # Standard-Y-Bereich
+
+            canvas.draw()
+            popup.destroy()
+
+        # Radiobuttons für die Auswahl
+        tk.Radiobutton(
+            popup,
+            text="Positive & Negative Y-Werte",
+            variable=selection,
+            value="all"
+        ).pack(anchor="w", pady=5)
+
+        tk.Radiobutton(
+            popup,
+            text="Nur positive Y-Werte",
+            variable=selection,
+            value="positive"
+        ).pack(anchor="w", pady=5)
+
+        tk.Radiobutton(
+            popup,
+            text="Nur negative Y-Werte",
+            variable=selection,
+            value="negative"
+        ).pack(anchor="w", pady=5)
+
+        # Button zum Übernehmen
+        ttk.Button(popup, text="Übernehmen", command=apply).pack(pady=15)
+
+
+    def open_axis_popup():
+        popup = Toplevel(settings_window)
+        popup.title("Achsen")
+        popup.geometry("300x200")
+
+        x_var = BooleanVar(value=logic_gui.axis_in_radians)
+        y_var = BooleanVar(value=False)
+
+        def apply():
+            logic_gui.axis_in_radians = x_var.get()
+            logic_gui.plot_functions(canvas, ax)
+            popup.destroy()
+
+        Checkbutton(popup, text="X-Achse in Bogenmaß", variable=x_var).pack(anchor="w", pady=5)
+        Checkbutton(popup, text="Y-Achse in Bogenmaß", variable=y_var).pack(anchor="w", pady=5)
+
+        ttk.Button(popup, text="Übernehmen", command=apply).pack(pady=15)
+
+    def open_palette_popup():
+        popup = Toplevel(settings_window)
+        popup.title("Farbpalette")
+        popup.geometry("400x450")
+
+        selected_palette = tk.IntVar(value=class_function.palette_index)
+
+        def apply():
+            class_function.palette_index = selected_palette.get()
+            class_function.colors = color_palettes[class_function.palette_index]
+
+            ax.clear()
+            logic_gui.plot_functions(canvas, ax)
+
+            for i, circle in enumerate(class_function.color_circles):
+                if i < len(class_function.colors):
+                    circle.config(bg=class_function.colors[i])
+
+            if 'ableitungs_popup' in globals() and ableitungs_popup is not None and ableitungs_popup.winfo_exists():
+                for widget in ableitungs_popup.winfo_children():
+                    if isinstance(widget, Canvas) and widget.cget("width") == "20" and widget.cget("height") == "20":
+                        idx = class_function.func_names.index(widget.master.winfo_children()[1].cget("text").split("(")[0])
+                        widget.config(bg=class_function.colors[idx])
+
+            if 'integration_popup' in globals() and integration_popup is not None and integration_popup.winfo_exists():
+                for widget in integration_popup.winfo_children():
+                    if isinstance(widget, Canvas) and widget.cget("width") == "20" and widget.cget("height") == "20":
+                        idx = class_function.func_names.index(widget.master.winfo_children()[1].cget("text").split("(")[0])
+                        widget.config(bg=class_function.colors[idx])
+
+            if 'ableitungs_popup' in globals() and ableitungs_popup is not None and ableitungs_popup.winfo_exists():
+                ableitungs_popup.destroy()
+                open_ableitung_popup()
+
+            if 'integration_popup' in globals() and integration_popup is not None and integration_popup.winfo_exists():
+                integration_popup.destroy()
+                open_integration_popup()
+
+            canvas.draw()
+            popup.destroy()
+
+        ttk.Label(popup, text="Palette auswählen:", font=text).pack(pady=10)
+
+        for idx, palette in enumerate(color_palettes):
+            row = Frame(popup)
+            row.pack(fill="x", pady=5)
+
+            rb = Radiobutton(
+                row,
+                text=f"{color_palette_names[idx]}",
+                variable=selected_palette,
+                value=idx
+            )
+            rb.pack(side="left", padx=5)
+
+            preview = Frame(row, width=180, height=20)
+            preview.pack(side="left", padx=10)
+            preview.pack_propagate(False)
+
+            for col, color in enumerate(palette[:max_funcs]):
+                c = Canvas(
+                    preview,
+                    width=18,
+                    height=18,
+                    bg=color,
+                    highlightthickness=0
+                )
+                c.place(x=2 + col * 22, y=1)
+
+        ttk.Button(popup, text="Übernehmen", command=apply).pack(pady=20)
+
+
+    
+    def open_max_funcs_popup():
+        popup = Toplevel(settings_window)
+        popup.title("Maximale Funktionen")
+        popup.geometry("300x180")
+
+        tk.Label(popup, text="Zahl (1-10):").pack(pady=10)
+
+        entry = ttk.Entry(popup)
+        entry.pack(pady=5)
+
+        def apply():
+            try:
+                value = int(entry.get())
+
+                if value < 1 or value > 10:
+                    messagebox.showerror("Fehler", "Nur Zahlen zwischen 1 und 10 erlaubt.")
+                    return
+
+                global max_funcs
+                global plus_button
+
+                max_funcs = value
+
+                while len(func_entries) > max_funcs:
+                    delete_input_field(len(func_entries) - 1)
+
+                if len(func_entries) < max_funcs:
+                    if plus_button:
+                        plus_button.destroy()
+
+                    plus_button = ttk.Button(
+                        input_frame,
+                        text="+",
+                        width=3,
+                        command=add_input_field,
+                        style="AktionButton.TButton"
+                    )
+
+                    plus_button.grid(
+                        row=len(func_entries),
+                        column=0,
+                        columnspan=2,
+                        pady=10
+                    )
+
+                logic_gui.plot_functions(canvas, ax)
+                popup.destroy()
+
+            except ValueError:
+                messagebox.showerror("Fehler", "Bitte eine gültige Zahl eingeben.")
+
+        ttk.Button(popup, text="Anwenden", command=apply).pack(pady=15)
+
+    ttk.Button(frame, text="Max. Funktionen", command=open_max_funcs_popup, width=25).pack(ipady=10, pady=10)
+    ttk.Button(frame, text="Koordinatensystem", command=open_coordinate_popup, width=25).pack(ipady=10, pady=10)
+    ttk.Button(frame, text="Achsen", command=open_axis_popup, width=25).pack(ipady=10, pady=10)
+    ttk.Button(frame, text="Farbpalette", command=open_palette_popup, width=25).pack(ipady=10, pady=10)
+
 
 def add_input_field():
     global plus_button
+
     if len(func_entries) >= max_funcs:
         return
+
     row = len(func_entries)
+
+    # Erweitere func_names, falls nötig
+    if len(func_names) <= row:
+        alphabet = "fghijklmnopqrstuvwxyz"
+        func_names.append(alphabet[row])
+
     entry_frame = ttk.Frame(input_frame)
-    entry_frame.grid(row=row, column=0, columnspan=2, padx=5, pady=20, sticky='ew')
-    circle = Canvas(entry_frame, width=20, height=20, bg=colors[row], bd=0, highlightthickness=0)
+
+    top_padding = 40 if row == 0 else 20
+
+    entry_frame.grid(
+        row=row,
+        column=0,
+        columnspan=2,
+        padx=5,
+        pady=(top_padding, 20),
+        sticky='ew'
+    )
+
+    # Farbkreis
+    circle = Canvas(
+        entry_frame,
+        width=20,
+        height=20,
+        bg=class_function.colors[row],
+        bd=0,
+        highlightthickness=0
+    )
     circle.grid(row=0, column=0, padx=(0, 5))
+
+    # Entry
     entry = ttk.Entry(entry_frame, width=20, font=text)
     entry.grid(row=0, column=1, sticky='ew', ipady=5)
+
+    entry.func_name = func_names[row]
+
+    # Interpretationslabel
     interpreted_label = ttk.Label(
         entry_frame,
         text="Interpretiert als: ",
@@ -138,6 +439,8 @@ def add_input_field():
     )
     interpreted_label.grid(row=1, column=0, columnspan=2, sticky='w')
     interpreted_label.grid_remove()
+
+    # Delete Button
     delete_button = ttk.Button(
         entry_frame,
         text="-",
@@ -146,15 +449,21 @@ def add_input_field():
         style="AktionButton.TButton"
     )
     delete_button.grid(row=0, column=2, padx=2)
+
+    # Event Bindings
     entry.bind("<FocusIn>", lambda e, idx=row: on_focus_in(idx))
     entry.bind("<FocusOut>", lambda e, idx=row: on_focus_out(idx))
-    entry.bind("<KeyRelease>", lambda e, idx=row: on_entry_change(e, idx))
+    entry.bind("<KeyRelease>", lambda e, idx=row: on_entry_change(e, idx, None))
+
     func_entries.append(entry)
     interpreted_labels.append(interpreted_label)
     delete_buttons.append(delete_button)
-    color_circles.append(circle)
+    class_function.color_circles.append(circle)
+
+    # Plus Button neu positionieren
     if plus_button:
         plus_button.destroy()
+
     if len(func_entries) < max_funcs:
         plus_button = ttk.Button(
             input_frame,
@@ -163,37 +472,71 @@ def add_input_field():
             command=add_input_field,
             style="AktionButton.TButton"
         )
-        plus_button.grid(row=row+1, column=0, columnspan=2, pady=10)
+        plus_button.grid(
+            row=len(func_entries),
+            column=0,
+            columnspan=2,
+            pady=10
+        )
+
 
 def delete_input_field(index):
     global plus_button
+
     if index >= len(func_entries):
         return
+
     try:
         func_entries[index].master.destroy()
         interpreted_labels[index].destroy()
         delete_buttons[index].destroy()
-        color_circles[index].destroy()
+        class_function.color_circles[index].destroy()
     except Exception as e:
         print(f"Fehler beim Löschen der Widgets: {e}")
+
+    # Widget-Listen bereinigen
     del func_entries[index]
     del interpreted_labels[index]
     del delete_buttons[index]
-    del color_circles[index]
-    func_name = func_names[index]
-    if func_name in functions:
-        del functions[func_name]
+    del class_function.color_circles[index]
+
+    # Aktualisiere func_names und functions
+    old_functions = list(functions.values())
+    functions.clear()
+    func_names.pop(index)
+
+    alphabet = "fghijklmnopqrstuvwxyz"
+
+    for i, func_obj in enumerate(old_functions):
+        if i == index:
+            continue
+
+        new_name = alphabet[i]
+        func_obj.name = new_name
+        functions[new_name] = func_obj
+        if i < index:
+            func_names[i] = new_name
+
     for row, entry in enumerate(func_entries):
+        func_obj = functions.get(func_names[row], None)
+
         frame = entry.master
         frame.grid(row=row, column=0, columnspan=2, padx=5, pady=15, sticky='ew')
-        color_circles[row].config(bg=colors[row])
+
+        class_function.color_circles[row].config(bg=class_function.colors[row])
+
+        entry.func_name = func_names[row]
         entry.bind("<FocusIn>", lambda e, idx=row: on_focus_in(idx))
         entry.bind("<FocusOut>", lambda e, idx=row: on_focus_out(idx))
-        entry.bind("<KeyRelease>", lambda e, idx=row: on_entry_change(e, idx))
+        entry.bind("<KeyRelease>", lambda e, idx=row, fo=func_obj: on_entry_change(e, idx, fo))
+
         delete_buttons[row].config(command=lambda idx=row: delete_input_field(idx))
+
+    # Plus Button neu setzen
     if plus_button:
         plus_button.destroy()
         plus_button = None
+
     if len(func_entries) < max_funcs:
         plus_button = ttk.Button(
             input_frame,
@@ -203,33 +546,49 @@ def delete_input_field(index):
             style="AktionButton.TButton"
         )
         plus_button.grid(row=len(func_entries), column=0, columnspan=2, pady=10)
+
+    # Plot komplett neu zeichnen
     try:
+        ax.clear()
         logic_gui.plot_functions(canvas, ax)
     except Exception as e:
         print(f"Fehler beim Neuzeichnen der Funktionen: {e}")
 
+
+
 def on_focus_in(index):
+    entry = func_entries[index]
+    func_name = entry.func_name
+
     interpreted_labels[index].grid()
-    func_name = func_names[index]
+
     if func_name in functions:
-        func_entries[index].delete(0, tk.END)
-        func_entries[index].insert(0, functions[func_name].raw_expr)
+        entry.delete(0, tk.END)
+        entry.insert(0, functions[func_name].raw_expr)
+
     update_interpretation(index)
 
 def on_focus_out(index):
     interpreted_labels[index].grid_remove()
-    raw_text = func_entries[index].get().strip()
+
+    entry = func_entries[index]
+    func_name = entry.func_name
+    raw_text = entry.get().strip()
+
     if not raw_text:
         return
-    func_name = func_names[index]
+
     try:
         if func_name not in functions:
-            functions[func_name] = class_function.Funktion(func_name, raw_text)
+            functions[func_name] = Funktion(func_name, raw_text)
         else:
             functions[func_name].update(raw_text)
+
         interpreted_text = interpreted(raw_text)
-        func_entries[index].delete(0, tk.END)
-        func_entries[index].insert(0, interpreted_text)
+
+        entry.delete(0, tk.END)
+        entry.insert(0, interpreted_text)
+
     except Exception as e:
         interpreted_labels[index].config(
             text=f"Fehler: {e}",
@@ -249,56 +608,54 @@ def is_valid_expression(expr):
         parser(expr)
         return True
     except Exception as e:
+        print(f"Fehler bei der Überprüfung des Ausdrucks: {e}")
         return False
 
-def on_entry_change(event, index):
+def on_entry_change(event, index, func_obj=None):
+
     if index >= len(func_entries):
         return
 
-    func_name = func_names[index]
+    entry = func_entries[index]
+    func_name = entry.func_name
+    label = interpreted_labels[index]
 
-    # --- Filter für diese Funktion zurücksetzen ---
-    if func_name in class_function.filter_funcs:
-        class_function.filter_funcs[func_name] = [None, None, None, None, False]
+    text = entry.get().strip()
 
-    # Optional: Fehleranzeige zurücksetzen
-    interpreted_labels[index].config(
-        text="Interpretiert als: ",
-        foreground="gray"
-    )
-
-    # Funktion weiterhin aktualisieren
-    text = func_entries[index].get().strip()
-    if text:
-        try:
-            if is_valid_expression(text):
-                if func_name not in functions:
-                    functions[func_name] = Funktion(func_name, text)
-                else:
-                    functions[func_name].update(text)
-                update_interpretation(index)
-                error = plot_functions(canvas, ax, error_label)
-                if error != True:
-                    error_label.config(text=error, foreground="red")
-                else:
-                    error_label.config(text="")
-            else:
-                interpreted_labels[index].config(
-                    text="Fehler: Ungültiger Ausdruck",
-                    foreground="red"
-                )
-        except Exception as e:
-            interpreted_labels[index].config(
-                text=f"Fehler: {e}",
-                foreground="red"
-            )
-            error_label.config(text=f"Fehler: {e}", foreground="red")
-    else:
-        interpreted_labels[index].config(
+    if not text:
+        label.config(
             text="Interpretiert als: ",
             foreground="gray"
         )
+        return
 
+    try:
+        parser(text)
+
+        if func_name not in functions:
+            functions[func_name] = Funktion(func_name, text)
+        else:
+            functions[func_name].update(text)
+
+        interpreted_expr = interpreted(text)
+
+        label.config(
+            text=f"Interpretiert als: {interpreted_expr}",
+            foreground="gray"
+        )
+
+        ax.clear()
+        logic_gui.plot_functions(canvas, ax)
+        canvas.draw()
+
+    except Exception as e:
+        handle_error(
+            expr=text,
+            error=e,
+            func_name=func_name,
+            label=label,
+            max_line_length=45
+        )
 
 def open_ableitung_popup():
     global ableitungs_popup
@@ -318,16 +675,16 @@ def open_ableitung_popup():
 
     for func_name in func_names:
         if func_name in functions:
-            func_str = functions[func_name].raw_expr
-            func_list.append((func_name, func_str))
+            func_list.append(func_name)
 
     if not func_list:
         ttk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
         return
 
-    for func_name, func_str in func_list:
+    for func_name in func_list:
         idx = func_names.index(func_name)
-        base_color = colors[idx]
+        base_color = class_function.colors[idx]
+        func_obj = functions[func_name]
 
         container = Frame(frame)
         container.pack(pady=5, fill='x')
@@ -338,21 +695,19 @@ def open_ableitung_popup():
 
         btn = ttk.Button(
             container,
-            text=f"{func_name} = {interpreted(func_str)}",
-            command=lambda n=func_name, s=func_str:
-                open_derivative_window(n, s),
+            text=f"{func_name}(x) = {interpreted(func_obj.raw_expr)}",
+            command=lambda fo=func_obj: open_derivative_window(fo),
             style="TextButton.TButton",
             padding=(5, 12)
         )
         btn.pack(side='left', fill='x', expand=True)
 
-
-    def open_derivative_window(func_name, func_str):
+    def open_derivative_window(func_obj):
 
         ableitungs_popup.destroy()
 
         deriv_popup = Toplevel(root)
-        deriv_popup.title(f"Ableitung von {func_name}")
+        deriv_popup.title(f"Ableitung von {func_obj.name}")
         deriv_popup.geometry("500x450")
 
         main_frame = Frame(deriv_popup, padx=15, pady=10)
@@ -360,7 +715,7 @@ def open_ableitung_popup():
 
         ttk.Label(
             main_frame,
-            text=f"Ableitung von f(x) = {interpreted(func_str)}",
+            text=f"Ableitung von f(x) = {interpreted(func_obj.raw_expr)}",
             font=text
         ).pack(pady=(0, 10))
 
@@ -383,31 +738,21 @@ def open_ableitung_popup():
         canvas_local = FigureCanvasTkAgg(fig, master=plot_frame)
         canvas_local.get_tk_widget().pack(fill='both', expand=False)
 
-        # ---------- ACHSENSTYLING ---------- #
-
         plot_ax.spines["top"].set_visible(False)
         plot_ax.spines["right"].set_visible(False)
-
         plot_ax.spines["bottom"].set_color(farbe)
         plot_ax.spines["left"].set_color(farbe)
 
-        plot_ax.spines["bottom"].set_linewidth(1)
-        plot_ax.spines["left"].set_linewidth(1)
-
-        plot_ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
-
-        # ---------- FARBEN ---------- #
-
-        idx = func_names.index(func_name)
-        base_color = colors[idx]
+        idx = func_names.index(func_obj.name)
+        base_color = class_function.colors[idx]
         light_color = lighter_color(base_color)
 
         result_label = ttk.Label(main_frame, text="", font=text)
         result_label.pack(pady=5)
 
-        func = conv_to_func(functions[func_name].parsed_expr)
+        func = conv_to_func(func_obj.parsed_expr)
 
-        deriv_str = ableitung(func_str)
+        deriv_str = ableitung(func_obj)
         deriv_func = conv_to_func(parser(deriv_str))
 
         def parse_x_value(val):
@@ -422,51 +767,26 @@ def open_ableitung_popup():
                 result_label.config(text="Ungültiger x-Wert", foreground="red")
                 return
 
-            x = np.linspace(x_val - 5, x_val + 5, 400)
+            x_vals = np.linspace(x_val - 5, x_val + 5, 400)
 
-            y = func(x)
-            y_deriv = deriv_func(x)
+            y = func(x_vals)
+            y_deriv = deriv_func(x_vals)
 
             plot_ax.clear()
 
-            # ---------- ACHSEN NACH CLEAR ---------- #
+            plot_ax.plot(x_vals, y, color=base_color,
+                         label=f"f(x) = {interpreted(func_obj.raw_expr)}")
 
-            plot_ax.spines["top"].set_visible(False)
-            plot_ax.spines["right"].set_visible(False)
-
-            plot_ax.spines["bottom"].set_color(farbe)
-            plot_ax.spines["left"].set_color(farbe)
-
-            plot_ax.spines["bottom"].set_linewidth(1)
-            plot_ax.spines["left"].set_linewidth(1)
-
-            plot_ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
-
-            # ---------- PLOTS (GEÄNDERT) ---------- #
-
-            # f(x) originale Farbe
-            plot_ax.plot(
-                x, y,
-                color=base_color,
-                label=f"f(x) = {interpreted(func_str)}"
-            )
-
-            # f'(x) heller + gestrichelt
-            plot_ax.plot(
-                x, y_deriv,
-                color=light_color,
-                linestyle="--",
-                label=f"f'(x) = {interpreted(deriv_str)}"
-            )
+            plot_ax.plot(x_vals, y_deriv, color=light_color,
+                         linestyle="--",
+                         label=f"f'(x) = {interpreted(deriv_str)}")
 
             y_val = deriv_func(x_val)
 
-            # Hilfslinien beide grau
             plot_ax.axvline(x=x_val, color='gray', linestyle='--')
             plot_ax.axhline(y=y_val, color='gray', linestyle='--')
 
             plot_ax.legend(fontsize=9)
-
             canvas_local.draw()
 
             result_label.config(
@@ -475,9 +795,7 @@ def open_ableitung_popup():
             )
 
         entry_x.bind("<KeyRelease>", update_plot)
-
         update_plot()
-
 
 
 def open_integration_popup():
@@ -498,16 +816,16 @@ def open_integration_popup():
 
     for func_name in func_names:
         if func_name in functions:
-            func_str = functions[func_name].raw_expr
-            func_list.append((func_name, func_str))
+            func_list.append(func_name)
 
     if not func_list:
         ttk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
         return
 
-    for func_name, func_str in func_list:
+    for func_name in func_list:
         idx = func_names.index(func_name)
-        base_color = colors[idx]
+        base_color = class_function.colors[idx]
+        func_obj = functions[func_name]
 
         container = Frame(frame)
         container.pack(pady=5, fill='x')
@@ -518,22 +836,19 @@ def open_integration_popup():
 
         btn = ttk.Button(
             container,
-            text=f"{func_name} = {interpreted(func_str)}",
-            command=lambda n=func_name, s=func_str:
-                open_integration_window(n, s),
+            text=f"{func_name}(x) = {interpreted(func_obj.raw_expr)}",
+            command=lambda fo=func_obj: open_integration_window(fo),
             style="TextButton.TButton",
             padding=(5, 12)
         )
         btn.pack(side='left', fill='x', expand=True)
 
-    # -------------------------------------------------
-
-    def open_integration_window(func_name, func_str):
+    def open_integration_window(func_obj):
 
         integration_popup.destroy()
 
         popup = Toplevel(root)
-        popup.title(f"Integration von {func_name}")
+        popup.title(f"Integration von {func_obj.name}")
         popup.geometry("500x450")
 
         main_frame = Frame(popup, padx=15, pady=10)
@@ -541,11 +856,10 @@ def open_integration_popup():
 
         ttk.Label(
             main_frame,
-            text=f"Integration von f(x) = {interpreted(func_str)}",
+            text=f"Integration von f(x) = {interpreted(func_obj.raw_expr)}",
             font=text
         ).pack(pady=(0, 10))
 
-        # Eingaben
         input_frame = Frame(main_frame)
         input_frame.pack(fill='x', pady=5)
 
@@ -557,7 +871,6 @@ def open_integration_popup():
         entry_b = ttk.Entry(input_frame, font=text, width=10)
         entry_b.grid(row=0, column=3, padx=(0, 95))
 
-        # Plot
         plot_frame = Frame(main_frame, width=450, height=300)
         plot_frame.pack(pady=5)
         plot_frame.pack_propagate(False)
@@ -568,44 +881,26 @@ def open_integration_popup():
         canvas_local = FigureCanvasTkAgg(fig, master=plot_frame)
         canvas_local.get_tk_widget().pack(fill='both', expand=False)
 
-        # Achsenstyling
-        plot_ax.spines["top"].set_visible(False)
-        plot_ax.spines["right"].set_visible(False)
-        plot_ax.spines["bottom"].set_color(farbe)
-        plot_ax.spines["left"].set_color(farbe)
-        plot_ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
-
-        idx = func_names.index(func_name)
-        base_color = colors[idx]
-        dark_color = darker_color(base_color) 
+        idx = func_names.index(func_obj.name)
+        base_color = class_function.colors[idx]
+        dark_color = darker_color(base_color)
 
         result_label = ttk.Label(main_frame, text="", font=text)
         result_label.pack(pady=5)
 
-        # Funktionen
-        func = conv_to_func(functions[func_name].parsed_expr)
+        func = conv_to_func(func_obj.parsed_expr)
 
-        integral_str = integration(func_str)
-        functions[func_name].set_integral(integral_str)
+        integral_str = integration(func_obj)
 
-        # --- Für den Plot: +C entfernen ---
-        plot_integral_str = integral_str.replace("+ C", "").replace("+C", "").replace("C +", "").replace("C+", "").strip()
+        plot_integral_str = integral_str.replace("+ C", "").replace("+C", "").strip()
         integral_func = conv_to_func(parser(plot_integral_str))
 
-        spec_cons = {
-            "pi": np.pi,
-            "e": np.e,
-            "tau": 2 * np.pi
-        }
-
         def parse_val(val):
-            return float(eval(val, {"__builtins__": None}, spec_cons))
+            val = val.replace("pi", str(np.pi))
+            val = val.replace("tau", str(2 * np.pi))
+            return float(eval(val))
 
         def update_plot(event=None):
-
-            Fa = 0
-            Fb = 0
-
             try:
                 a = parse_val(entry_a.get())
                 b = parse_val(entry_b.get())
@@ -613,45 +908,26 @@ def open_integration_popup():
                 result_label.config(text="Ungültige Grenzen", foreground="red")
                 return
 
-            x = np.linspace(min(a, b) - 5, max(a, b) + 5, 400)
+            x_vals = np.linspace(min(a, b) - 5, max(a, b) + 5, 400)
 
-            y = func(x)
-            Y = integral_func(x)
+            y = func(x_vals)
+            Y = integral_func(x_vals)
 
             plot_ax.clear()
 
-            # Achsen nach clear
-            plot_ax.spines["top"].set_visible(False)
-            plot_ax.spines["right"].set_visible(False)
-            plot_ax.spines["bottom"].set_color(farbe)
-            plot_ax.spines["left"].set_color(farbe)
+            plot_ax.plot(x_vals, y, color=base_color,
+                         label=f"f(x) = {interpreted(func_obj.raw_expr)}")
 
-            # f(x)
-            plot_ax.plot(
-                x, y,
-                color=base_color,
-                label=f"f(x) = {interpreted(func_str)}"
-            )
-
-            # F(x) dunkler + gestrichelt
-            plot_ax.plot(
-                x, Y,
-                color=dark_color,
-                linestyle="--",
-                label=f"F(x) = {interpreted(integral_str)}"  # Legend bleibt inkl. +C
-            )
+            plot_ax.plot(x_vals, Y, color=dark_color,
+                         linestyle="--",
+                         label=f"F(x) = {interpreted(integral_str)}")
 
             Fa = integral_func(a)
             Fb = integral_func(b)
             value = Fb - Fa
 
-            # Grenzenlinien
-            plot_ax.axhline(y=Fa, color="gray", linestyle="--")
-            plot_ax.axhline(y=Fb, color="gray", linestyle="--")
-
-            value_str = f"{value:.4f}"
             result_label.config(
-                text=f"F({b:.2f}) − F({a:.2f}) = {value_str}",
+                text=f"F({b:.2f}) − F({a:.2f}) = {value:.4f}",
                 foreground="black"
             )
 
@@ -666,6 +942,206 @@ def open_integration_popup():
 
         update_plot()
 
+def open_fourier_popup():
+    global fourier_popup
+
+    if 'fourier_popup' in globals() and fourier_popup is not None and fourier_popup.winfo_exists():
+        fourier_popup.destroy()
+        fourier_popup = None
+
+    fourier_popup = Toplevel(root)
+    fourier_popup.title("Fourier Transformation")
+    fourier_popup.geometry("300x400")
+
+    frame = Frame(fourier_popup)
+    frame.pack(padx=15, pady=15, fill='both', expand=True)
+
+    func_list = [name for name in func_names if name in functions]
+
+    if not func_list:
+        ttk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
+        return
+
+    for func_name in func_list:
+        idx = func_names.index(func_name)
+        base_color = class_function.colors[idx]
+        func_obj = functions[func_name]
+
+        container = Frame(frame)
+        container.pack(pady=5, fill='x')
+
+        Canvas(container, width=20, height=20,
+               bg=base_color, bd=0, highlightthickness=0).pack(side='left', padx=(0,5))
+
+        btn = ttk.Button(
+            container,
+            text=f"{func_name}(x) = {interpreted(func_obj.raw_expr)}",
+            command=lambda fo=func_obj: open_fourier_window(fo),
+            style="TextButton.TButton",
+            padding=(5,12)
+        )
+        btn.pack(side='left', fill='x', expand=True)
+
+
+def open_fourier_window(func_obj):
+
+    fourier_popup.destroy()
+
+    popup = Toplevel(root)
+    popup.title(f"Fourier von {func_obj.name}")
+    popup.geometry("600x450")
+
+    main_frame = Frame(popup, padx=15, pady=10)
+    main_frame.pack(fill='both', expand=True)
+
+    # ---------------- Titel mit Dach ----------------
+    ttk.Label(
+        main_frame,
+        text=f"F̂(x) von f(x) = {interpreted(func_obj.raw_expr)}",
+        font=text
+    ).pack(pady=(0,10))
+
+    plot_frame = Frame(main_frame, width=550, height=350)
+    plot_frame.pack()
+    plot_frame.pack_propagate(False)
+
+    fig = Figure(figsize=(5,3.5), dpi=90)
+    ax_local = fig.add_subplot(111)
+
+    canvas_local = FigureCanvasTkAgg(fig, master=plot_frame)
+    canvas_local.get_tk_widget().pack(fill='both', expand=True)
+
+    idx = func_names.index(func_obj.name)
+    base_color = class_function.colors[idx]
+
+    # Fourier berechnen
+    fourier_str = fourier(func_obj)
+
+    # Dach Darstellung
+    fourier_plot_str = fourier_str.replace("w", "f")
+
+    try:
+        fourier_func = conv_to_func(parser(fourier_plot_str))
+    except:
+        fourier_func = None
+
+    def update_plot():
+
+        ax_local.clear()
+
+        try:
+            x_vals = np.linspace(-10,10,400)
+
+            if fourier_func:
+                y_vals = fourier_func(x_vals)
+                ax_local.plot(x_vals, y_vals, color=base_color,
+                              label=f"F̂(f) = {fourier_str}")
+
+        except:
+            pass
+
+        ax_local.legend(fontsize=9)
+        canvas_local.draw()
+
+    update_plot()
+
+def open_rfourier_popup():
+    global rfourier_popup
+
+    if 'rfourier_popup' in globals() and rfourier_popup is not None and rfourier_popup.winfo_exists():
+        rfourier_popup.destroy()
+        rfourier_popup = None
+
+    rfourier_popup = Toplevel(root)
+    rfourier_popup.title("Rück-Fourier Transformation")
+    rfourier_popup.geometry("300x400")
+
+    frame = Frame(rfourier_popup)
+    frame.pack(padx=15, pady=15, fill='both', expand=True)
+
+    func_list = [name for name in func_names if name in functions]
+
+    if not func_list:
+        ttk.Label(frame, text="Keine Funktionen definiert.", font=text).pack(pady=10)
+        return
+
+    for func_name in func_list:
+        idx = func_names.index(func_name)
+        base_color = class_function.colors[idx]
+        func_obj = functions[func_name]
+
+        container = Frame(frame)
+        container.pack(pady=5, fill='x')
+
+        Canvas(container, width=20, height=20,
+               bg=base_color, bd=0, highlightthickness=0).pack(side='left', padx=(0,5))
+
+        btn = ttk.Button(
+            container,
+            text=f"{func_name}(w) = {func_obj.fourier_raw if func_obj.fourier_raw else 'Transformieren'}",
+            command=lambda fo=func_obj: open_rfourier_window(fo),
+            style="TextButton.TButton",
+            padding=(5,12)
+        )
+        btn.pack(side='left', fill='x', expand=True)
+
+
+def open_rfourier_window(func_obj):
+
+    rfourier_popup.destroy()
+
+    popup = Toplevel(root)
+    popup.title(f"Rück-Fourier von {func_obj.name}")
+    popup.geometry("600x450")
+
+    main_frame = Frame(popup, padx=15, pady=10)
+    main_frame.pack(fill='both', expand=True)
+
+    ttk.Label(
+        main_frame,
+        text=f"F(x) = ℱ⁻¹({interpreted(func_obj.raw_expr)})",
+        font=text
+    ).pack(pady=(0,10))
+
+    plot_frame = Frame(main_frame, width=550, height=350)
+    plot_frame.pack()
+    plot_frame.pack_propagate(False)
+
+    fig = Figure(figsize=(5,3.5), dpi=90)
+    ax_local = fig.add_subplot(111)
+
+    canvas_local = FigureCanvasTkAgg(fig, master=plot_frame)
+    canvas_local.get_tk_widget().pack(fill='both', expand=True)
+
+    idx = func_names.index(func_obj.name)
+    base_color = class_function.colors[idx]
+
+    rfourier_str = rfourier(func_obj)
+
+    try:
+        rfourier_func = conv_to_func(parser(rfourier_str))
+    except:
+        rfourier_func = None
+
+    def update_plot():
+
+        ax_local.clear()
+
+        try:
+            x_vals = np.linspace(-10,10,400)
+
+            if rfourier_func:
+                y_vals = rfourier_func(x_vals)
+                ax_local.plot(x_vals, y_vals, color=base_color,
+                              label=f"ℱ⁻¹ = {rfourier_str}")
+
+        except:
+            pass
+
+        ax_local.legend(fontsize=9)
+        canvas_local.draw()
+
+    update_plot()
 
 def open_filter_popup():
     global filter_popup
@@ -711,12 +1187,12 @@ def open_filter_popup():
 
     for row, (func_name, func_str) in enumerate(func_list, start=2):
         idx = func_names.index(func_name)
-        base_color = colors[idx]
+        base_color = class_function.colors[idx]
 
         circle = Canvas(table, width=18, height=18, bg=base_color, bd=0, highlightthickness=0)
         circle.grid(row=row, column=0, padx=(0, 5), pady=4)
 
-        func_label = ttk.Label(table, text=f"{func_name} = {interpreted(func_str)}", font=text, anchor="w")
+        func_label = ttk.Label(table, text=f"{func_name}(x) = {interpreted(func_str)}", font=text, anchor="w")
         func_label.grid(row=row, column=1, sticky='w', padx=(0, 10))
 
         x_from_entry = ttk.Entry(table, width=8, font=sm_text)
@@ -801,7 +1277,7 @@ def open_filter_popup():
             for line in ax.lines[:]:
                 if line.get_label().startswith(func_name):
                     line.remove()
-            ax.plot(x, y, label=f"{func_name} = {interpreted(func_obj.raw_expr)}", color=colors[func_names.index(func_name)])
+            ax.plot(x, y, label=f"{func_name}(x) = {interpreted(func_obj.raw_expr)}", color=class_function.colors[func_names.index(func_name)])
 
         ax.legend(fontsize=12)
         canvas.draw()
@@ -852,8 +1328,8 @@ def reset_filter_row(func_name):
             line.remove()
 
     # Neue Linie plotten
-    ax.plot(x, y, label=f"{func_name} = {interpreted(func_obj.raw_expr)}",
-            color=colors[func_names.index(func_name)])
+    ax.plot(x, y, label=f"{func_name}(x) = {interpreted(func_obj.raw_expr)}",
+            color=class_function.colors[func_names.index(func_name)])
     ax.legend(fontsize=12)
     canvas.draw() 
     
@@ -871,7 +1347,7 @@ def open_legend():
     ttk.Label(frame, text="|2x|  → abs(2x)", font=text).pack(anchor='w', pady=(2, 5))
     tk.Label(frame, text="", font=text).pack()
     ttk.Label(frame, text="Spezielle Funktionen:", font=(schriftart, 11, 'bold')).pack(anchor='w')
-    for func in comp_input.spec_funcs.keys():
+    for func in comp_input.allowed_funcs.keys():
         tk.Label(frame, text=f"- {func}(x)", font=text).pack(anchor='w')
     tk.Label(frame, text="- eˣ    → exp(x)", font=text).pack(anchor='w', pady=(5, 0))
     tk.Label(frame, text="- e²ˣ   → exp(2x)", font=text).pack(anchor='w', pady=(5, 0))
@@ -883,8 +1359,10 @@ def open_legend():
     tk.Label(frame, text="euler   → e", font=text).pack(anchor='w')
     tk.Label(frame, text="τ       → tau", font=text).pack(anchor='w')
 
-button_frame = ttk.Frame(root)
-button_frame.place(relx=0.915, rely=0.3, anchor='center', height=500, relwidth=0.15)
+button_frame = ttk.Frame(main_frame, width=int(screen_width*0.8*0.18))
+button_frame.pack(side='right', fill='y', padx=(5, 40), pady=10)
+button_frame.pack_propagate(False)
+
 filter_button = ttk.Button(
     button_frame,
     text="Filter",
@@ -906,32 +1384,51 @@ integration_button = ttk.Button(
 ft_button = ttk.Button(
     button_frame,
     text="Fouriertransformierte",
+    command=open_fourier_popup,
     style="TextButton.TButton"
 )
 rft_button = ttk.Button(
     button_frame,
     text="Rücktransformierte",
+    command=open_rfourier_popup,
     style="TextButton.TButton"
 )
-filter_button.pack(fill='x', pady=10, ipady=9)
-ableitung_button.pack(fill='x', pady=10, ipady=9)
-integration_button.pack(fill='x', pady=10, ipady=9)
-ft_button.pack(fill='x', pady=10, ipady=9)
-rft_button.pack(fill='x', pady=10, ipady=9)
-settings_button = ttk.Button(
-    button_frame,
-    text="Einstellungen",
-    command=open_settings,
-    style="TextButton.TButton"
-)
+
+filter_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
+ableitung_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
+integration_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
+ft_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
+rft_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
+
+
 legend_button = ttk.Button(
-    button_frame,
+    main_frame,
     text="Legende",
-    command=open_legend,
-    style="TextButton.TButton"
+    style="TextButton.TButton",
+    command=open_legend
 )
-settings_button.pack(fill='x', pady=10, ipady=9)
-legend_button.pack(fill='x', pady=10, ipady=9)
+legend_button.place(
+    relx=0.01,
+    rely=0.975,
+    anchor='sw',
+    width=90,
+    height=40
+)
+
+settings_button = ttk.Button(
+    main_frame,
+    text="Einstellungen",
+    style="TextButton.TButton",
+    command=open_settings
+)
+settings_button.place(
+    relx=0.99,
+    rely=0.975,
+    anchor='se',
+    width=115,
+    height=40
+)
+
 
 canvas.mpl_connect("button_press_event", lambda event: logic_gui.on_press(event, ax, canvas))
 canvas.mpl_connect("motion_notify_event", lambda event: logic_gui.on_motion(event, ax, canvas))

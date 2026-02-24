@@ -3,6 +3,8 @@ import numpy as np
 import ast
 from typing import Optional
 
+error_display_time = 2
+
 def rect(x, T = 1.0):
     x = np.asarray(x)
     return np.where(np.abs(x) <= T/2, 1.0, 0.0)
@@ -10,6 +12,43 @@ def rect(x, T = 1.0):
 def tri(x, T = 1.0):
     x = np.asarray(x)
     return np.where(np.abs(x) <= T, 1.0 - np.abs(x)/T, 0.0)
+
+def delta(expr, x, eps=1e-3):
+
+    x = np.asarray(x)
+
+    scale = 1.0
+    shift = 0.0
+
+    scale_match = re.search(r"([\-]?\d*\.?\d+(?:/\d*\.?\d+)?)\s*\*?\s*x", expr)
+
+    if scale_match:
+        scale_str = scale_match.group(1)
+
+        if "/" in scale_str:
+            num, den = scale_str.split("/")
+            scale = float(num) / float(den)
+        else:
+            scale = float(scale_str)
+
+    elif re.search(r"\bx\b", expr):
+        scale = 1.0
+    elif re.search(r"-\s*x", expr):
+        scale = -1.0
+
+    shift_match = re.search(r"[+\-]\s*([\-]?\d+\.?\d*)\s*$", expr)
+
+    if shift_match:
+        shift = float(shift_match.group(1))
+
+        if scale != 0:
+            shift = -shift / scale
+
+    height = 1.0 / (abs(scale) * 2 * eps)
+
+    mask = np.abs(scale * (x - shift)) < eps
+
+    return np.where(mask, height, 0.0)
 
 
 allowed_funcs = {
@@ -26,9 +65,10 @@ allowed_funcs = {
     "arccos": np.arccos,
     "arctan": np.arctan,
     "sinc": np.sinc,
+    "abs": np.abs,
     "rect": rect,
     "tri": tri,
-    "abs": np.abs,
+    "delta": delta
 }
 
 allowed_consts = {
@@ -145,29 +185,50 @@ def eval_ast(expr, x):
         raise ValueError(f"Unbekannter Fehler: {e}")
 
 
-def handle_error(expr: str, error: Exception, func_name: Optional[str] = None) -> str:
+def handle_error(expr: str, error: Exception, func_name: str | None = None, label=None, max_line_length: int = 45) -> None:
+
+    if not label:
+        return
 
     if func_name:
-        msg = f"Fehler in Funktion '{func_name}': {error}"
+        msg = f"Fehler in '{func_name}': {error}"
     else:
-        msg = f"Fehler bei der Auswertung von '{expr}': {error}"
+        msg = f"Fehler in '{expr}': {error}"
 
-    # npezifische Fehler analysieren
     if isinstance(error, ValueError):
         if "Unbekannte Variable" in str(error):
-            msg += f"\n  -> Unbekannte Variable im Ausdruck: {error}"
+            msg += " – Unbekannte Variable."
         elif "Funktion nicht erlaubt" in str(error):
-            msg += f"\n  -> Funktion nicht in `allowed_funcs` definiert: {error}"
+            msg += " – Nicht erlaubte Funktion."
         elif "Nicht erlaubter Ausdruck" in str(error):
-            msg += f"\n  -> AST-Knoten nicht unterstützt: {error}"
+            msg += " – Ausdruck nicht unterstützt."
         else:
-            msg += f"\n  -> Ungültiger Ausdruck: {error}"
+            msg += " – Ungültiger Ausdruck."
     elif isinstance(error, SyntaxError):
-        msg += f"\n  -> Syntaxfehler: {error}"
+        msg += " – Syntaxfehler."
     else:
-        msg += f"\n  -> Unbekannter Fehler: {error}"
+        msg += " – Unbekannter Fehler."
 
-    return msg
+    words = msg.split()
+    lines = []
+    current = ""
+
+    for word in words:
+        if len(current) + len(word) + 1 <= max_line_length:
+            current += (" " if current else "") + word
+        else:
+            lines.append(current)
+            current = word
+
+    if current:
+        lines.append(current)
+
+    wrapped_msg = "\n".join(lines)
+
+    label.config(
+        text=wrapped_msg,
+        foreground="red"
+    )
 
 def simplify_funcs(expr: str) -> str:
     expr = expr.strip()

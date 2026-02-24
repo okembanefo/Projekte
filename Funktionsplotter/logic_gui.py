@@ -5,10 +5,11 @@ from matplotlib.figure import Figure
 import matplotlib.colors as mc
 import colorsys
 from collections import deque, defaultdict
-from comp_input import eval_ast, handle_error, interpreted, parser
+from comp_input import eval_ast, interpreted, parser, handle_error
 from plot_logic import gen_funcs
+import class_function
 from class_function import functions, func_names, colors, x_range_kord, y_range_kord, count_points, axis_in_radians, show_positive_only, pan_sen, pan_state, x_ax_min, x_ax_max, y_ax_min, y_ax_max
-from comp_input import handle_error
+
 
 
 def auto_adjust_axis(x, y):
@@ -92,43 +93,137 @@ def darker_color(color):
     hls = colorsys.rgb_to_hls(*rgb)
     return mc.to_hex(colorsys.hls_to_rgb(hls[0], 0.5 * hls[1], hls[2]))
 
-def plot_functions(canvas, ax, error_label=None):
+def plot_functions(canvas, ax, error_label=None, func_obj=None):
+    import re
+
     ax.clear()
+
     initial_x_range = list(x_range_kord)
     initial_y_range = list(y_range_kord)
 
-    for i, func_name in enumerate(func_names):
-        if func_name in functions:
-            func = functions[func_name]
-            try:
-                x, y = gen_funcs(
-                    func.parsed_expr,
-                    allow_compl=False,
-                    start=x_ax_min,
-                    end=x_ax_max,
-                    count=count_points
+    plotted_something = False  # Flag, um zu prüfen, ob etwas geplottet wurde
+
+    for func_name, func in functions.items():
+        if func_name not in func_names:
+            continue
+
+        color = class_function.colors[func_names.index(func_name)]
+
+        try:
+            expr_lower = func.raw_expr.lower()
+
+            if "delta" in expr_lower:
+                match_inner = re.search(r"delta\((.*)\)", func.raw_expr, re.DOTALL)
+
+                if not match_inner:
+                    continue
+
+                inner_expr = match_inner.group(1)
+
+                x_vals = np.linspace(x_ax_min, x_ax_max, count_points)
+
+                y_vals = delta(inner_expr, x_vals)
+
+                if len(y_vals) == 0:
+                    continue
+
+                height = float(np.max(y_vals))
+
+                pos = 0.0
+
+                shift_match = re.search(r"x\s*-\s*([0-9\.\-]+)", inner_expr)
+
+                if shift_match:
+                    try:
+                        pos = float(shift_match.group(1))
+                    except:
+                        pos = 0.0
+
+                ax.vlines(
+                    pos,
+                    0,
+                    height,
+                    color=color,
+                    linewidth=3
                 )
-               
-                if len(x) > 0 and len(y) > 0:
-                    ax.plot(
-                        x,
-                        y,
-                        color=colors[i],
-                        label=f"{func.name} = {func.interpreted_expr}"
+
+                ax.annotate(
+                    "",
+                    xy=(pos, height),
+                    xytext=(pos, height * 0.7),
+                    arrowprops=dict(
+                        arrowstyle="->",
+                        color=color,
+                        linewidth=3
                     )
-            except ValueError as e:
-                if error_label:
-                    error_label.config(text=str(e), foreground="red")
-                continue
-            except Exception as e:
-                if error_label:
-                    error_label.config(text=f"Unbekannter Fehler: {e}", foreground="red")
-                print(f"Unbekannter Fehler bei {func_name}: {e}")
+                )
+
                 continue
 
+            x, y = gen_funcs(
+                func.parsed_expr,
+                allow_compl=False,
+                start=x_ax_min,
+                end=x_ax_max,
+                count=count_points
+            )
+
+            if len(x) == 0 or len(y) == 0:
+                continue
+
+            # Filter anwenden
+            filter_settings = class_function.filter_funcs.get(
+                func_name,
+                [None, None, None, None, False]
+            )
+
+            x_from, x_to, y_from, y_to, hide = filter_settings
+
+            mask = np.ones_like(x, dtype=bool)
+
+            if x_from is not None:
+                mask &= (x >= float(x_from))
+
+            if x_to is not None:
+                mask &= (x <= float(x_to))
+
+            if y_from is not None:
+                mask &= (y >= float(y_from))
+
+            if y_to is not None:
+                mask &= (y <= float(y_to))
+
+            x, y = x[mask], y[mask]
+
+            if not hide and len(x) > 0:
+                ax.plot(
+                    x,
+                    y,
+                    color=color,
+                    label=f"{func_name}(x) = {func.interpreted_expr}"
+                )
+                plotted_something = True 
+
+        except Exception as e:
+            continue
+
     ax.set_xlim(initial_x_range)
-    ax.set_ylim(initial_y_range)
-    ax.grid(True, which="both", linestyle='-')
-    ax.legend(fontsize=12)
+
+    if class_function.show_positive_only:
+        ax.set_ylim(bottom=0)
+
+    elif getattr(class_function, "show_negative_only", False):
+        ax.set_ylim(top=0)
+
+    else:
+        ax.set_ylim(initial_y_range)
+
+    ax.grid(True)
+
+    # Nur Legende anzeigen, wenn etwas geplottet wurde
+    if plotted_something:
+        ax.legend(fontsize=12)
+
     canvas.draw()
+
     return True
