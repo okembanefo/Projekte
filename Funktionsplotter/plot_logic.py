@@ -25,11 +25,31 @@ def gen_werte(func, allow_compl=False, start=-10, end=10, count=1000):
         y = y[valid_mask]
     return x, y
 
-def conv_to_func(expr):
+def conv_to_func(expr, allow_compl: bool = False):
     def func(x):
-        return eval_ast(expr, x)
-    return func
+        x = np.asarray(x)
 
+        with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+            y = eval_ast(expr, x)
+
+            if np.isscalar(y):
+                y = np.full_like(x, y, dtype=float)
+            else:
+                y = np.asarray(y)
+
+            if np.iscomplexobj(y):
+                if allow_compl:
+                    y = np.real(y)
+                else:
+                    mask = np.imag(y) == 0
+                    y = np.where(mask, np.real(y), np.nan)
+
+            y = y.astype(float)
+
+            return y
+
+    return func
+    
 def gen_funcs(expr: str, allow_compl: bool = False, start: float = -10, end: float = 10, count: int = 1000) -> tuple[np.ndarray, np.ndarray]:
 
     try:

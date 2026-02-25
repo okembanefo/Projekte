@@ -14,7 +14,6 @@ import class_function
 from class_function import Funktion, functions, func_names, max_funcs, filter_funcs, entry_widgets, color_palettes, color_palette_names
 from comp_input import handle_error
 
-
 root = tk.Tk()
 root.title("Funktionsplotter")
 
@@ -61,86 +60,49 @@ fourier_popup = None
 rfourier_popup = None
 filter_popup = None
 
+input_frame_visible = True
+button_frame_visible = True
+
 main_frame = ttk.Frame(root)
 main_frame.pack(fill='both', expand=True)
 
-input_frame = ttk.Frame(main_frame, width=int(screen_width*0.8*0.2))
+input_frame = ttk.Frame(main_frame, width=int(screen_width * 0.8 * 0.2))
 input_frame.pack(side='left', fill='y', padx=5, pady=10)
 input_frame.pack_propagate(False)
 
-input_frame_visible = True 
-button_frame_visible = True 
+toggle_left_frame = ttk.Frame(main_frame, width=30)
+toggle_left_frame.pack(side='left', fill='y', padx=0, pady=0)
+toggle_left_frame.pack_propagate(False)
 
+# Plot Bereich
 plot_frame = ttk.Frame(main_frame)
-plot_frame.pack(side='left', fill='both', expand=True, padx=0, pady=5)
+plot_frame.pack(side='left', fill='both', expand=True, padx=10, pady=20)
 plot_frame.pack_propagate(False)
 
-def toggle_input_fields():
-    global input_frame_visible
+toggle_right_frame = ttk.Frame(main_frame, width=30)
+toggle_right_frame.pack(side='right', fill='y')
+toggle_right_frame.pack_propagate(False)
 
-    if input_frame_visible:
-        input_frame.pack_forget()
-        toggle_input_button.config(text="↪")
-        toggle_input_button.place(relx=0.05, rely=0.5, anchor='center')
-    else:
-        input_frame.pack(
-            side='left',
-            fill='y',
-            padx=5,
-            pady=10,
-            before=plot_frame
-        )
-        toggle_input_button.config(text="↩")
-        toggle_input_button.place(relx=0.17, rely=0.5, anchor='center')
-
-    input_frame_visible = not input_frame_visible
-    logic_gui.plot_functions(canvas, ax)
-
-
-def toggle_addons():
-    global button_frame, toggle_addons_button, button_frame_visible
-
-    if button_frame_visible:
-        button_frame.pack_forget()
-        toggle_addons_button.config(text="↩")
-        toggle_addons_button.place(relx=0.95, rely=0.5, anchor='center')
-    else:
-        button_frame.pack(side='right', fill='y', padx=5, pady=10)
-        toggle_addons_button.config(text="↪")
-        toggle_addons_button.place(relx=0.82, rely=0.5, anchor='center')
-
-    button_frame_visible = not button_frame_visible
-    logic_gui.plot_functions(canvas, ax)
-
-
-toggle_input_button = ttk.Button(
-    main_frame,
-    text="↩",
-    style="AktionButton.TButton",
-    command=toggle_input_fields
+button_frame = ttk.Frame(main_frame, width=int(screen_width * 0.8 * 0.15))
+button_frame.pack(
+    side='right',
+    fill='y',
+    padx=(5, 40),
+    before=toggle_right_frame
 )
-toggle_input_button.place(relx=0.17, rely=0.5, anchor='center', width=60, height=40)
+button_frame.pack_propagate(False)
 
-toggle_addons_button = ttk.Button(
-    main_frame,
-    text="↪",
-    style="AktionButton.TButton",
-    command=toggle_addons
-)
-toggle_addons_button.place(relx=0.80, rely=0.5, anchor='center', width=60, height=40)
-
-
-fig = Figure(figsize=(6, 4.5))
+fig = Figure(figsize=(5, 7), dpi=100)  
 ax = fig.add_subplot(111)
+
 canvas = FigureCanvasTkAgg(fig, master=plot_frame)
-canvas.get_tk_widget().pack(fill='both', expand=True)
+canvas_widget = canvas.get_tk_widget()
+canvas_widget.pack(fill='both', expand=True)
 
 ax.spines["top"].set_visible(False)
 ax.spines["right"].set_visible(False)
 ax.spines["bottom"].set_linewidth(1)
 ax.spines["left"].set_linewidth(1)
-ax.spines["left"].set_linestyle("-")
-ax.spines["left"].set_linestyle("-")
 ax.spines["bottom"].set_color(farbe)
 ax.spines["left"].set_color(farbe)
 ax.set_xlabel("")
@@ -150,6 +112,61 @@ ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
 error_label = ttk.Label(root, text="", foreground="red", font=text)
 error_label.pack(pady=5)
 
+
+toggle_input_button = ttk.Button(
+    toggle_left_frame,
+    text="↩",
+    style="AktionButton.TButton",
+    command=lambda: toggle_input_fields()
+)
+
+toggle_addons_button = ttk.Button(
+    toggle_right_frame,
+    text="↪",
+    style="AktionButton.TButton",
+    command=lambda: toggle_addons()
+)
+
+toggle_input_button.pack(pady=(screen_height//2, 0))
+toggle_addons_button.pack(pady=(screen_height//2, 0))
+
+def toggle_input_fields():
+    global input_frame_visible
+
+    if input_frame_visible:
+        input_frame.pack_forget()
+        toggle_input_button.config(text="↪")
+    else:
+        input_frame.pack(
+            side='left',
+            fill='y',
+            padx=5,
+            pady=10,
+            before=toggle_left_frame
+        )
+        toggle_input_button.config(text="↩")
+
+    input_frame_visible = not input_frame_visible
+    logic_gui.plot_functions(canvas, ax)
+
+def toggle_addons():
+    global button_frame_visible
+
+    if button_frame_visible:
+        button_frame.pack_forget()
+        toggle_addons_button.config(text="↩")
+    else:
+        button_frame.pack(
+            side='right',
+            fill='y',
+            padx=5,
+            pady=10,
+            before=toggle_right_frame
+        )
+        toggle_addons_button.config(text="↪")
+
+    button_frame_visible = not button_frame_visible
+    logic_gui.plot_functions(canvas, ax)
 
 def open_settings():
     settings_window = Toplevel(root)
@@ -982,68 +999,65 @@ def open_fourier_popup():
         )
         btn.pack(side='left', fill='x', expand=True)
 
+    def open_fourier_window(func_obj):
 
-def open_fourier_window(func_obj):
+        fourier_popup.destroy()
 
-    fourier_popup.destroy()
+        popup = Toplevel(root)
+        popup.title(f"Fourier von {func_obj.name}")
+        popup.geometry("600x450")
 
-    popup = Toplevel(root)
-    popup.title(f"Fourier von {func_obj.name}")
-    popup.geometry("600x450")
+        main_frame = Frame(popup, padx=15, pady=10)
+        main_frame.pack(fill='both', expand=True)
 
-    main_frame = Frame(popup, padx=15, pady=10)
-    main_frame.pack(fill='both', expand=True)
+        ttk.Label(
+            main_frame,
+            text=f"F̂(x) von f(x) = {interpreted(func_obj.raw_expr)}",
+            font=text
+        ).pack(pady=(0,10))
 
-    # ---------------- Titel mit Dach ----------------
-    ttk.Label(
-        main_frame,
-        text=f"F̂(x) von f(x) = {interpreted(func_obj.raw_expr)}",
-        font=text
-    ).pack(pady=(0,10))
+        plot_frame = Frame(main_frame, width=550, height=350)
+        plot_frame.pack()
+        plot_frame.pack_propagate(False)
 
-    plot_frame = Frame(main_frame, width=550, height=350)
-    plot_frame.pack()
-    plot_frame.pack_propagate(False)
+        fig = Figure(figsize=(5,3.5), dpi=90)
+        ax_local = fig.add_subplot(111)
 
-    fig = Figure(figsize=(5,3.5), dpi=90)
-    ax_local = fig.add_subplot(111)
+        canvas_local = FigureCanvasTkAgg(fig, master=plot_frame)
+        canvas_local.get_tk_widget().pack(fill='both', expand=True)
 
-    canvas_local = FigureCanvasTkAgg(fig, master=plot_frame)
-    canvas_local.get_tk_widget().pack(fill='both', expand=True)
+        idx = func_names.index(func_obj.name)
+        base_color = class_function.colors[idx]
 
-    idx = func_names.index(func_obj.name)
-    base_color = class_function.colors[idx]
+        fourier_str = fourier(func_obj)
 
-    # Fourier berechnen
-    fourier_str = fourier(func_obj)
-
-    # Dach Darstellung
-    fourier_plot_str = fourier_str.replace("w", "f")
-
-    try:
-        fourier_func = conv_to_func(parser(fourier_plot_str))
-    except:
-        fourier_func = None
-
-    def update_plot():
-
-        ax_local.clear()
+        fourier_plot_str = fourier_str.replace("w", "f")
 
         try:
-            x_vals = np.linspace(-10,10,400)
-
-            if fourier_func:
-                y_vals = fourier_func(x_vals)
-                ax_local.plot(x_vals, y_vals, color=base_color,
-                              label=f"F̂(f) = {fourier_str}")
-
+            fourier_func = conv_to_func(parser(fourier_plot_str))
         except:
-            pass
+            fourier_func = None
 
-        ax_local.legend(fontsize=9)
-        canvas_local.draw()
+        def update_plot():
 
-    update_plot()
+            ax_local.clear()
+
+            try:
+                x_vals = np.linspace(-10,10,400)
+
+                if fourier_func:
+                    y_vals = fourier_func(x_vals)
+                    ax_local.plot(x_vals, y_vals, color=base_color,
+                                label=f"F̂(f) = {fourier_str}")
+
+            except:
+                pass
+
+            ax_local.legend(fontsize=9)
+            canvas_local.draw()
+
+        update_plot()
+
 
 def open_rfourier_popup():
     global rfourier_popup
@@ -1078,70 +1092,71 @@ def open_rfourier_popup():
 
         btn = ttk.Button(
             container,
-            text=f"{func_name}(w) = {func_obj.fourier_raw if func_obj.fourier_raw else 'Transformieren'}",
+            text=f"{func_name}(x) = {interpreted(func_obj.raw_expr)}",
             command=lambda fo=func_obj: open_rfourier_window(fo),
             style="TextButton.TButton",
             padding=(5,12)
         )
         btn.pack(side='left', fill='x', expand=True)
+    
+    def open_rfourier_window(func_obj):
 
+        rfourier_popup.destroy()
 
-def open_rfourier_window(func_obj):
+        popup = Toplevel(root)
+        popup.title(f"Rück-Fourier von {func_obj.name}")
+        popup.geometry("600x450")
 
-    rfourier_popup.destroy()
+        main_frame = Frame(popup, padx=15, pady=10)
+        main_frame.pack(fill='both', expand=True)
 
-    popup = Toplevel(root)
-    popup.title(f"Rück-Fourier von {func_obj.name}")
-    popup.geometry("600x450")
+        ttk.Label(
+            main_frame,
+            text=f"F(x) = ℱ⁻¹({interpreted(func_obj.raw_expr)})",
+            font=text
+        ).pack(pady=(0,10))
 
-    main_frame = Frame(popup, padx=15, pady=10)
-    main_frame.pack(fill='both', expand=True)
+        plot_frame = Frame(main_frame, width=550, height=350)
+        plot_frame.pack()
+        plot_frame.pack_propagate(False)
 
-    ttk.Label(
-        main_frame,
-        text=f"F(x) = ℱ⁻¹({interpreted(func_obj.raw_expr)})",
-        font=text
-    ).pack(pady=(0,10))
+        fig = Figure(figsize=(5,3.5), dpi=90)
+        ax_local = fig.add_subplot(111)
 
-    plot_frame = Frame(main_frame, width=550, height=350)
-    plot_frame.pack()
-    plot_frame.pack_propagate(False)
+        canvas_local = FigureCanvasTkAgg(fig, master=plot_frame)
+        canvas_local.get_tk_widget().pack(fill='both', expand=True)
 
-    fig = Figure(figsize=(5,3.5), dpi=90)
-    ax_local = fig.add_subplot(111)
+        idx = func_names.index(func_obj.name)
+        base_color = class_function.colors[idx]
 
-    canvas_local = FigureCanvasTkAgg(fig, master=plot_frame)
-    canvas_local.get_tk_widget().pack(fill='both', expand=True)
-
-    idx = func_names.index(func_obj.name)
-    base_color = class_function.colors[idx]
-
-    rfourier_str = rfourier(func_obj)
-
-    try:
-        rfourier_func = conv_to_func(parser(rfourier_str))
-    except:
-        rfourier_func = None
-
-    def update_plot():
-
-        ax_local.clear()
+        rfourier_str = rfourier(func_obj)
 
         try:
-            x_vals = np.linspace(-10,10,400)
-
-            if rfourier_func:
-                y_vals = rfourier_func(x_vals)
-                ax_local.plot(x_vals, y_vals, color=base_color,
-                              label=f"ℱ⁻¹ = {rfourier_str}")
-
+            rfourier_func = conv_to_func(parser(rfourier_str))
         except:
-            pass
+            rfourier_func = None
 
-        ax_local.legend(fontsize=9)
-        canvas_local.draw()
+        def update_plot():
 
-    update_plot()
+            ax_local.clear()
+
+            try:
+                x_vals = np.linspace(-10,10,400)
+
+                if rfourier_func:
+                    y_vals = rfourier_func(x_vals)
+                    ax_local.plot(x_vals, y_vals, color=base_color,
+                                label=f"ℱ⁻¹ = {rfourier_str}")
+
+            except:
+                pass
+
+            ax_local.legend(fontsize=9)
+            canvas_local.draw()
+
+        update_plot()
+
+
 
 def open_filter_popup():
     global filter_popup
@@ -1359,10 +1374,6 @@ def open_legend():
     tk.Label(frame, text="euler   → e", font=text).pack(anchor='w')
     tk.Label(frame, text="τ       → tau", font=text).pack(anchor='w')
 
-button_frame = ttk.Frame(main_frame, width=int(screen_width*0.8*0.18))
-button_frame.pack(side='right', fill='y', padx=(5, 40), pady=10)
-button_frame.pack_propagate(False)
-
 filter_button = ttk.Button(
     button_frame,
     text="Filter",
@@ -1394,6 +1405,8 @@ rft_button = ttk.Button(
     style="TextButton.TButton"
 )
 
+spacer_top = ttk.Frame(button_frame, height=130)
+spacer_top.pack(fill='x')
 filter_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
 ableitung_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
 integration_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
@@ -1408,8 +1421,8 @@ legend_button = ttk.Button(
     command=open_legend
 )
 legend_button.place(
-    relx=0.01,
-    rely=0.975,
+    relx=0.03,
+    rely=0.96,
     anchor='sw',
     width=90,
     height=40
@@ -1422,8 +1435,8 @@ settings_button = ttk.Button(
     command=open_settings
 )
 settings_button.place(
-    relx=0.99,
-    rely=0.975,
+    relx=0.97,
+    rely=0.96,
     anchor='se',
     width=115,
     height=40
