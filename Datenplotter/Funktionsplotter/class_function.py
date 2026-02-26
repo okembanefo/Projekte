@@ -100,7 +100,7 @@ entry_widgets = {}
 
 x_range_kord = [-10, 10]
 y_range_kord = [-10, 10]
-count_points = 35000
+count_points = 100000
 axis_in_radians = False
 show_positive_only = False
 is_panning = False

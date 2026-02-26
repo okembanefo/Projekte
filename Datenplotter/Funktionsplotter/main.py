@@ -15,7 +15,7 @@ from class_function import Funktion, functions, func_names, max_funcs, filter_fu
 from comp_input import handle_error
 
 root = tk.Tk()
-root.title("Datenplotter")
+root.title("Funktionsplotter")
 
 schriftart = "Segoe UI"
 b_schrift = "Tahoma"
@@ -63,172 +63,72 @@ filter_popup = None
 input_frame_visible = True
 button_frame_visible = True
 
-def main():
-    global main_frame
-    main_frame = ttk.Frame(root)
-    main_frame.pack(fill='both', expand=True)
+main_frame = ttk.Frame(root)
+main_frame.pack(fill='both', expand=True)
 
-    input_frame_setup()
-    plot_frame_setup()
-    button_frame_setup()
-    setup_toggle_buttons()
-    setup_legend_and_settings_buttons()
+input_frame = ttk.Frame(main_frame, width=int(screen_width * 0.8 * 0.2))
+input_frame.pack(side='left', fill='y', padx=5, pady=10)
+input_frame.pack_propagate(False)
 
-    add_input_field()
-    root.mainloop()
+toggle_left_frame = ttk.Frame(main_frame, width=30)
+toggle_left_frame.pack(side='left', fill='y', padx=0, pady=0)
+toggle_left_frame.pack_propagate(False)
 
-def input_frame_setup():
-    global input_frame, toggle_left_frame
-    # Erstelle input_frame
-    input_frame = ttk.Frame(main_frame, width=int(screen_width * 0.8 * 0.2))
-    input_frame.pack(side='left', fill='y', padx=5, pady=10)
-    input_frame.pack_propagate(False)
+# Plot Bereich
+plot_frame = ttk.Frame(main_frame)
+plot_frame.pack(side='left', fill='both', expand=True, padx=10, pady=20)
+plot_frame.pack_propagate(False)
 
-    # Erstelle toggle_left_frame
-    toggle_left_frame = ttk.Frame(main_frame, width=30)
-    toggle_left_frame.pack(side='left', fill='y', padx=0, pady=0)
-    toggle_left_frame.pack_propagate(False)
+toggle_right_frame = ttk.Frame(main_frame, width=30)
+toggle_right_frame.pack(side='right', fill='y')
+toggle_right_frame.pack_propagate(False)
 
-def plot_frame_setup():
-    global fig, ax, canvas, canvas_widget, plot_frame, toggle_right_frame
-    # Erstelle plot_frame
-    plot_frame = ttk.Frame(main_frame)
-    plot_frame.pack(side='left', fill='both', expand=True, padx=10, pady=20)
-    plot_frame.pack_propagate(False)
+button_frame = ttk.Frame(main_frame, width=int(screen_width * 0.8 * 0.15))
+button_frame.pack(
+    side='right',
+    fill='y',
+    padx=(5, 40),
+    before=toggle_right_frame
+)
+button_frame.pack_propagate(False)
 
-    # Erstelle toggle_right_frame
-    toggle_right_frame = ttk.Frame(main_frame, width=30)
-    toggle_right_frame.pack(side='right', fill='y')
-    toggle_right_frame.pack_propagate(False)
+fig = Figure(figsize=(5, 7), dpi=100)  
+ax = fig.add_subplot(111)
 
-    # Matplotlib-Figur und Achsen
-    fig = Figure(figsize=(5, 7), dpi=100)
-    ax = fig.add_subplot(111)
+canvas = FigureCanvasTkAgg(fig, master=plot_frame)
+canvas_widget = canvas.get_tk_widget()
+canvas_widget.pack(fill='both', expand=True)
 
-    canvas = FigureCanvasTkAgg(fig, master=plot_frame)
-    canvas_widget = canvas.get_tk_widget()
-    canvas_widget.pack(fill='both', expand=True)
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+ax.spines["bottom"].set_linewidth(1)
+ax.spines["left"].set_linewidth(1)
+ax.spines["bottom"].set_color(farbe)
+ax.spines["left"].set_color(farbe)
+ax.set_xlabel("")
+ax.set_ylabel("")
+ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
 
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["bottom"].set_linewidth(1)
-    ax.spines["left"].set_linewidth(1)
-    ax.spines["bottom"].set_color(farbe)
-    ax.spines["left"].set_color(farbe)
-    ax.set_xlabel("")
-    ax.set_ylabel("")
-    ax.tick_params(axis='both', labelsize=10, labelcolor=farbe)
+error_label = ttk.Label(root, text="", foreground="red", font=text)
+error_label.pack(pady=5)
 
-    error_label = ttk.Label(root, text="", foreground="red", font=text)
-    error_label.pack(pady=5)
 
-    canvas.mpl_connect("button_press_event", lambda event: logic_gui.on_press(event, ax, canvas))
-    canvas.mpl_connect("motion_notify_event", lambda event: logic_gui.on_motion(event, ax, canvas))
-    canvas.mpl_connect("button_release_event", lambda event: logic_gui.on_release(event))
-    canvas.mpl_connect("scroll_event", lambda event: logic_gui.on_scroll(event, ax, canvas))
+toggle_input_button = ttk.Button(
+    toggle_left_frame,
+    text="↩",
+    style="AktionButton.TButton",
+    command=lambda: toggle_input_fields()
+)
 
-def button_frame_setup():
-    global button_frame, filter_button, ableitung_button, integration_button, ft_button, rft_button
-    # Erstelle button_frame
-    button_frame = ttk.Frame(main_frame, width=int(screen_width * 0.8 * 0.15))
-    button_frame.pack(
-        side='right',
-        fill='y',
-        padx=(5, 40),
-        before=toggle_right_frame
-    )
-    button_frame.pack_propagate(False)
+toggle_addons_button = ttk.Button(
+    toggle_right_frame,
+    text="↪",
+    style="AktionButton.TButton",
+    command=lambda: toggle_addons()
+)
 
-    # Erstelle Buttons
-    filter_button = ttk.Button(
-        button_frame,
-        text="Filter",
-        command=open_filter_popup,
-        style="TextButton.TButton"
-    )
-    ableitung_button = ttk.Button(
-        button_frame,
-        text="Ableitung",
-        command=open_ableitung_popup,
-        style="TextButton.TButton"
-    )
-    integration_button = ttk.Button(
-        button_frame,
-        text="Integration",
-        command=open_integration_popup,
-        style="TextButton.TButton"
-    )
-    ft_button = ttk.Button(
-        button_frame,
-        text="Fouriertransformierte",
-        command=open_fourier_popup,
-        style="TextButton.TButton"
-    )
-    rft_button = ttk.Button(
-        button_frame,
-        text="Rücktransformierte",
-        command=open_rfourier_popup,
-        style="TextButton.TButton"
-    )
-
-    # Packe Buttons
-    spacer_top = ttk.Frame(button_frame, height=130)
-    spacer_top.pack(fill='x')
-    filter_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
-    ableitung_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
-    integration_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
-    ft_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
-    rft_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
-
-def setup_toggle_buttons():
-    global toggle_input_button, toggle_addons_button
-    # Erstelle Toggle-Buttons
-    toggle_input_button = ttk.Button(
-        toggle_left_frame,
-        text="↩",
-        style="AktionButton.TButton",
-        command=lambda: toggle_input_fields()
-    )
-    toggle_input_button.pack(pady=(screen_height//2, 0))
-
-    toggle_addons_button = ttk.Button(
-        toggle_right_frame,
-        text="↪",
-        style="AktionButton.TButton",
-        command=lambda: toggle_addons()
-    )
-    toggle_addons_button.pack(pady=(screen_height//2, 0))
-
-def setup_legend_and_settings_buttons():
-    global legend_button, settings_button
-    legend_button = ttk.Button(
-        main_frame,
-        text="Legende",
-        style="TextButton.TButton",
-        command=open_legend
-    )
-    legend_button.place(
-        relx=0.03,
-        rely=0.96,
-        anchor='sw',
-        width=90,
-        height=40
-    )
-
-    settings_button = ttk.Button(
-        main_frame,
-        text="Einstellungen",
-        style="TextButton.TButton",
-        command=open_settings
-    )
-    settings_button.place(
-        relx=0.97,
-        rely=0.96,
-        anchor='se',
-        width=115,
-        height=40
-    )
-
+toggle_input_button.pack(pady=(screen_height//2, 0))
+toggle_addons_button.pack(pady=(screen_height//2, 0))
 
 def toggle_input_fields():
     global input_frame_visible
@@ -1474,5 +1374,79 @@ def open_legend():
     tk.Label(frame, text="euler   → e", font=text).pack(anchor='w')
     tk.Label(frame, text="τ       → tau", font=text).pack(anchor='w')
 
-if __name__ == "__main__":
-    main()
+filter_button = ttk.Button(
+    button_frame,
+    text="Filter",
+    command=open_filter_popup,
+    style="TextButton.TButton"
+)
+ableitung_button = ttk.Button(
+    button_frame,
+    text="Ableitung",
+    command=open_ableitung_popup,
+    style="TextButton.TButton"
+)
+integration_button = ttk.Button(
+    button_frame,
+    text="Integration",
+    command=open_integration_popup,
+    style="TextButton.TButton"
+)
+ft_button = ttk.Button(
+    button_frame,
+    text="Fouriertransformierte",
+    command=open_fourier_popup,
+    style="TextButton.TButton"
+)
+rft_button = ttk.Button(
+    button_frame,
+    text="Rücktransformierte",
+    command=open_rfourier_popup,
+    style="TextButton.TButton"
+)
+
+spacer_top = ttk.Frame(button_frame, height=130)
+spacer_top.pack(fill='x')
+filter_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
+ableitung_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
+integration_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
+ft_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
+rft_button.pack(fill='x', pady=10, ipady=9, padx=5, anchor='e')
+
+
+legend_button = ttk.Button(
+    main_frame,
+    text="Legende",
+    style="TextButton.TButton",
+    command=open_legend
+)
+legend_button.place(
+    relx=0.03,
+    rely=0.96,
+    anchor='sw',
+    width=90,
+    height=40
+)
+
+settings_button = ttk.Button(
+    main_frame,
+    text="Einstellungen",
+    style="TextButton.TButton",
+    command=open_settings
+)
+settings_button.place(
+    relx=0.97,
+    rely=0.96,
+    anchor='se',
+    width=115,
+    height=40
+)
+
+
+canvas.mpl_connect("button_press_event", lambda event: logic_gui.on_press(event, ax, canvas))
+canvas.mpl_connect("motion_notify_event", lambda event: logic_gui.on_motion(event, ax, canvas))
+canvas.mpl_connect("button_release_event", lambda event: logic_gui.on_release(event))
+canvas.mpl_connect("scroll_event", lambda event: logic_gui.on_scroll(event, ax, canvas))
+
+add_input_field()
+root.mainloop()
